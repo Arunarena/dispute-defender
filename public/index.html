@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dispute Defender // Command Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="icon" href="/img/shield.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="grid-bg"></div>
+    <div class="scanlines"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="shield">
+          <svg viewBox="0 0 48 56" aria-hidden="true"><path d="M24 2 L44 10 V26 C44 40 35 49 24 54 C13 49 4 40 4 26 V10 Z" fill="none" stroke="currentColor" stroke-width="3"/><path d="M15 28 l7 7 l12 -14" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          <h1 class="glitch" data-text="DISPUTE DEFENDER">DISPUTE DEFENDER</h1>
+          <p class="tagline">AI dispute command center for PayPal sellers</p>
+        </div>
+      </div>
+      <div class="modes" id="modes"></div>
+      <button class="sim-btn" id="simulate" title="Simulates PayPal sending a CUSTOMER.DISPUTE.CREATED webhook">📡 Simulate incoming dispute</button>
+      <div class="clock" id="clock">--:--:--</div>
+      <a class="shop-link" href="/shop.html">🛍️ Demo shop</a>
+    </header>
+
+    <section class="stats" id="stats"></section>
+
+    <main class="layout">
+      <aside class="list-panel panel">
+        <div class="panel-head">
+          <h2><span class="dot live"></span> INCOMING DISPUTES</h2>
+          <button class="icon-btn" id="refresh" title="Refresh">⟳</button>
+        </div>
+        <div id="dispute-list" class="dispute-list"><p class="muted">Scanning…</p></div>
+        <div class="autopilot" id="autopilot">
+          <div class="ap-head">
+            <h3>🤖 AUTOPILOT</h3>
+            <label class="switch"><input type="checkbox" id="ap-enabled" /><span></span></label>
+          </div>
+          <p class="ap-sub" id="ap-sub">Off: every dispute waits for you.</p>
+          <div class="ap-rules">
+            <label><span>Auto-fight when win odds ≥ <b id="v-fightMinOdds">80</b>%</span><input type="range" min="50" max="99" id="r-fightMinOdds" /></label>
+            <label><span>…and amount ≤ $<b id="v-fightMaxAmount">200</b></span><input type="range" min="0" max="1000" step="10" id="r-fightMaxAmount" /></label>
+            <label><span>Auto-settle refunds ≤ $<b id="v-settleMaxAmount">25</b></span><input type="range" min="0" max="200" step="5" id="r-settleMaxAmount" /></label>
+            <label class="chk"><input type="checkbox" id="r-autoReply" /> Auto-reply when no money moves</label>
+          </div>
+          <ul class="ap-feed" id="ap-feed"></ul>
+        </div>
+        <div class="activity">
+          <h3>&gt; ACTION LOG</h3>
+          <ul id="activity"><li class="muted">No actions yet.</li></ul>
+        </div>
+      </aside>
+
+      <section class="detail-panel panel" id="detail">
+        <div class="empty">
+          <div class="radar big"><div class="sweep"></div><span class="blip b1"></span><span class="blip b2"></span><span class="blip b3"></span></div>
+          <h2>SELECT A TARGET</h2>
+          <p>Pick a dispute. The AI agent pulls the order, carrier tracking, buyer history and store policy, then recommends how to respond. Nothing goes to PayPal until you approve it.</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Full-screen AI processing view -->
+    <div class="warroom hidden" id="warroom">
+      <canvas id="matrix"></canvas>
+      <div class="wr-frame">
+        <div class="wr-top">
+          <div class="wr-title"><span class="dot live"></span> AI AGENT // INVESTIGATION IN PROGRESS</div>
+          <div class="wr-target" id="wr-target"></div>
+          <button class="wr-skip" id="wr-skip">skip ▸</button>
+        </div>
+        <div class="wr-body">
+          <div class="terminal" id="terminal"></div>
+          <div class="wr-side">
+            <div class="radar"><div class="sweep"></div><span class="blip b1"></span><span class="blip b2"></span><span class="blip b3"></span></div>
+            <div class="modules" id="modules"></div>
+            <div class="hexdump" id="hexdump"></div>
+          </div>
+        </div>
+        <div class="wr-progress"><div class="wr-track"><div class="bar" id="wr-bar"></div></div><span id="wr-pct">0%</span></div>
+      </div>
+      <div class="wr-complete hidden" id="wr-complete"><div class="glitch big" data-text="ANALYSIS COMPLETE">ANALYSIS COMPLETE</div></div>
+    </div>
+
+    <!-- Negotiation arena -->
+    <div class="arena hidden" id="arena">
+      <div class="ar-frame">
+        <div class="ar-top">
+          <div class="wr-title"><span class="dot live"></span> NEGOTIATION ARENA // AGENT vs AGENT</div>
+          <div class="ar-note">Rehearsal against a simulated buyer agent. Nothing is sent until you choose.</div>
+          <button class="wr-skip" id="ar-close">close ✕</button>
+        </div>
+        <div class="ar-track">
+          <div class="ar-scale"><span>$0</span><span id="ar-max">$0</span></div>
+          <div class="ar-line">
+            <div class="ar-zone" id="ar-zone"></div>
+            <div class="ar-mark seller" id="ar-seller"><span>SELLER $0</span></div>
+            <div class="ar-mark buyer" id="ar-buyer"><span>BUYER $0</span></div>
+          </div>
+        </div>
+        <div class="ar-body">
+          <div class="ar-agent seller">
+            <div class="ar-av">🛡️</div>
+            <div class="ar-name">SELLER AGENT</div>
+            <div class="ar-role">Knows your orders, tracking &amp; policy</div>
+            <div class="ar-think" id="think-seller"></div>
+          </div>
+          <div class="ar-chat" id="ar-chat"></div>
+          <div class="ar-agent buyer">
+            <div class="ar-av" id="ar-buyer-av">B</div>
+            <div class="ar-name" id="ar-buyer-name">BUYER AGENT</div>
+            <div class="ar-role">Simulated from the buyer's own words</div>
+            <div class="ar-think" id="think-buyer"></div>
+          </div>
+        </div>
+        <div class="ar-result hidden" id="ar-result"></div>
+      </div>
+    </div>
+
+    <div class="toasts" id="toasts"></div>
+
+    <!-- Transmission overlay -->
+    <div class="transmit hidden" id="transmit">
+      <div class="tx-box">
+        <div class="tx-title" id="tx-title">TRANSMITTING TO PAYPAL</div>
+        <div class="tx-path">
+          <div class="tx-node">🛡️<span>Defender</span></div>
+          <div class="tx-wire"><span class="packet"></span><span class="packet p2"></span><span class="packet p3"></span></div>
+          <div class="tx-node pp">🏦<span>PayPal API</span></div>
+        </div>
+        <div class="tx-log" id="tx-log"></div>
+      </div>
+    </div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

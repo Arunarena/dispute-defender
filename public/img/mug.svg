@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
+  <defs>
+    <linearGradient id="mgBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a1a3e"/><stop offset="1" stop-color="#0f0b1d"/></linearGradient>
+    <linearGradient id="mgBody" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb37a"/><stop offset="1" stop-color="#e0617a"/></linearGradient>
+    <linearGradient id="mgBody2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b59bff"/><stop offset="1" stop-color="#6d4bd6"/></linearGradient>
+  </defs>
+  <rect width="160" height="160" rx="24" fill="url(#mgBg)"/>
+  <ellipse cx="80" cy="128" rx="54" ry="7" fill="#000" opacity=".35"/>
+  <!-- back mug -->
+  <path d="M86 56 h40 v52 a10 10 0 0 1 -10 10 h-20 a10 10 0 0 1 -10 -10z" fill="url(#mgBody2)" opacity=".85"/>
+  <ellipse cx="106" cy="56" rx="20" ry="5" fill="#d9ccff"/>
+  <!-- front mug -->
+  <path d="M30 66 h50 v50 a12 12 0 0 1 -12 12 h-26 a12 12 0 0 1 -12 -12z" fill="url(#mgBody)"/>
+  <path d="M80 78 h8 a12 12 0 0 1 0 24 h-8" fill="none" stroke="#ffb37a" stroke-width="6"/>
+  <ellipse cx="55" cy="66" rx="25" ry="6" fill="#ffe0c7"/>
+  <ellipse cx="55" cy="66" rx="19" ry="3.5" fill="#5a2a2a"/>
+  <!-- chip on the rim -->
+  <path d="M33 64 l6 7 l4 -6z" fill="#0f0b1d"/>
+  <path d="M46 40 q-6 -8 0 -16 M58 42 q-6 -8 0 -16 M70 40 q-6 -8 0 -16" stroke="#ffffff" stroke-width="2.5" fill="none" opacity=".35" stroke-linecap="round"/>
+</svg>

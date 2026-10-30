@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Juniper &amp; Co. (demo shop)</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="icon" href="/img/shield.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="grid-bg"></div>
+    <header class="topbar">
+      <div class="brand"><span style="font-size:34px">🌿</span><div><h1>JUNIPER &amp; CO.</h1><p class="tagline">Demo store for creating real PayPal sandbox orders</p></div></div>
+      <a class="shop-link" href="/">← Back to command center</a>
+    </header>
+    <div class="shop">
+      <div id="banner"></div>
+      <div class="products" id="grid"></div>
+      <div id="result"></div>
+      <div class="steps panel">
+        <b style="font-family:var(--mono);color:var(--cyan);letter-spacing:.1em">&gt; HOW TO CREATE A REAL SANDBOX DISPUTE</b>
+        <ol>
+          <li>Buy an item using your <b>sandbox personal (buyer)</b> account from developer.paypal.com → Testing Tools → Sandbox Accounts.</li>
+          <li>The store records the order with a simulated tracking number, so the agent has evidence.</li>
+          <li>Log in to <b>sandbox.paypal.com</b> as that buyer → Resolution Center → open a dispute on the payment (e.g. "item not received").</li>
+          <li>Return to Dispute Defender, refresh, and deploy the agent on it.</li>
+        </ol>
+      </div>
+    </div>
+    <script type="module">
+      const img = { "AUR-ANC-01": "headphones", "MUG-SET-4": "mug", "TOTE-2": "tote" };
+      const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      const config = await (await fetch("/api/config")).json();
+      const { items } = await (await fetch("/api/shop/items")).json();
+
+      document.getElementById("grid").innerHTML = items
+        .map((i) => `<div class="product panel"><img src="/img/${img[i.sku] ?? "box"}.svg" alt="" /><h3>${esc(i.name)}</h3><div class="price">$${esc(i.price)}</div><div id="btn-${esc(i.sku)}"></div></div>`)
+        .join("");
+
+      if (!config.paypalClientId) {
+        document.getElementById("banner").innerHTML = `<div class="note">Checkout is off in demo mode. Add <code>PAYPAL_CLIENT_ID</code> and <code>PAYPAL_CLIENT_SECRET</code> (sandbox) to <code>.env</code> and restart to enable real PayPal sandbox checkout.</div>`;
+      } else {
+        const s = document.createElement("script");
+        s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(config.paypalClientId)}&currency=USD&intent=capture`;
+        s.onload = () => {
+          for (const item of items) {
+            paypal
+              .Buttons({
+                style: { layout: "horizontal", height: 40, tagline: false, color: "gold" },
+                createOrder: async () => {
+                  const r = await fetch("/api/shop/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sku: item.sku }) });
+                  const data = await r.json();
+                  if (!r.ok) throw new Error(data.error);
+                  return data.id;
+                },
+                onApprove: async ({ orderID }) => {
+                  const r = await fetch(`/api/shop/orders/${orderID}/capture`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sku: item.sku }) });
+                  const data = await r.json();
+                  document.getElementById("result").innerHTML = r.ok
+                    ? `<div class="done">✓ PAID · capture <code>${esc(data.captureId)}</code> · shipped with tracking <code>${esc(data.trackingNumber)}</code> (simulated). Now open a dispute from the buyer account.</div>`
+                    : `<div class="error">${esc(data.error)}</div>`;
+                },
+                onError: (err) => {
+                  document.getElementById("result").innerHTML = `<div class="error">${esc(err.message ?? err)}</div>`;
+                },
+              })
+              .render(`#btn-${item.sku}`);
+          }
+        };
+        document.head.appendChild(s);
+      }
+    </script>
+  </body>
+</html>
