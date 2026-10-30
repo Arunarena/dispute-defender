@@ -78,6 +78,17 @@ Restart with `npm start`. Both badges in the header should now show live mode.
 
 ---
 
+## Deploy to Render (hosted demo)
+
+This repo includes a [render.yaml](render.yaml) blueprint.
+
+1. Push this repo to GitHub.
+2. In [Render](https://dashboard.render.com): **New → Blueprint**, then pick the repo.
+3. Optionally fill in `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `ANTHROPIC_API_KEY` and `PAYPAL_WEBHOOK_ID`. Leave them empty for demo mode.
+4. Deploy. For Autopilot with real webhooks, point a PayPal sandbox webhook at `https://<your-app>.onrender.com/api/webhooks/paypal`.
+
+On Render's free plan the app sleeps when idle, so the first visit takes a few extra seconds.
+
 ## How it works
 
 ```
