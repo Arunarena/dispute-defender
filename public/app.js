@@ -144,7 +144,7 @@ function renderList() {
 function renderActivity() {
   if (!state.activity.length) return;
   $("#activity").innerHTML = state.activity
-    .map((a) => `<li><b>✓ ${esc(VERDICTS[a.verdict]?.label ?? a.verdict)}</b><span class="src ${esc(a.source)}">${esc(a.source ?? "MANUAL")}</span> · ${esc(a.disputeId)}${a.rule ? `<br/><span class="muted">rule: ${esc(a.rule)}</span>` : ""}${a.photosAttached ? `<br/><span class="muted">📎 ${a.photosAttached} photo(s) attached</span>` : ""}<br/><code>${esc(a.call)}${a.simulated ? " (simulated)" : ` → ${a.paypalStatus}`}</code></li>`)
+    .map((a) => `<li><b>✓ ${esc(VERDICTS[a.verdict]?.label ?? a.verdict)}</b><span class="src ${esc(a.source)}">${esc(a.source ?? "MANUAL")}</span> · ${esc(a.disputeId)}${a.rule ? `<br/><span class="muted">rule: ${esc(a.rule)}</span>` : ""}${a.photosAttached ? `<br/><span class="muted">📎 ${a.photosAttached} file(s) attached (dossier + photos)</span>` : ""}<br/><code>${esc(a.call)}${a.simulated ? " (simulated)" : ` → ${a.paypalStatus}`}</code></li>`)
     .join("");
 }
 
@@ -513,12 +513,14 @@ function renderRecommendation(animate) {
         <div class="full approve-row">
           ${rec.verdict === "OFFER_PARTIAL_REFUND" ? `<label style="font-family:var(--mono);font-size:12px">REFUND $ <input class="offer-input" id="offer-amount" value="${esc(rec.offer_amount ?? "")}" /></label>` : ""}
           <button class="cta go" id="approve" ${done ? "disabled" : ""}>${done ? "✓ SENT" : `✓ APPROVE · ${v.action}`}</button>
-          <span class="api-note">→ <code>POST /v1/customer/disputes/{id}/${v.api}</code>${rec.verdict === "FIGHT" && sellerPhotoCount() ? ` · 📎 ${sellerPhotoCount()} photo(s) attached` : ""}</span>
+          <button class="cta ghost" id="open-dossier">📄 EVIDENCE DOSSIER</button>
+          <span class="api-note">→ <code>POST /v1/customer/disputes/{id}/${v.api}</code>${rec.verdict === "FIGHT" ? ` · 📎 dossier PDF${sellerPhotoCount() ? ` + ${sellerPhotoCount()} photo(s)` : ""} attached` : ""}</span>
         </div>
       </div>
     </div>
     <div id="sent"></div>`;
   $("#approve").onclick = () => approve(d, rec);
+  $("#open-dossier").onclick = () => openDossier(d.id);
   if (animate) {
     requestAnimationFrame(() => requestAnimationFrame(() => ($(".gauge .arc").style.strokeDashoffset = c * (1 - pct / 100))));
     countUp($("#gauge-num"), pct, { suffix: "%" });
@@ -819,6 +821,7 @@ function connectEvents() {
   const es = new EventSource("/api/events");
   es.onmessage = async (e) => {
     const ev = JSON.parse(e.data);
+    window.dispatchEvent(new CustomEvent("dd-event", { detail: ev }));
     switch (ev.type) {
       case "dispute_new":
         state.fresh.add(ev.dispute.id);
@@ -866,6 +869,27 @@ $("#simulate").onclick = async () => {
     toast("SIMULATION FAILED", e.message, "warn");
   }
   setTimeout(() => (btn.disabled = false), 800);
+};
+
+// ---------------- evidence dossier ----------------
+async function openDossier(id) {
+  const url = `/api/disputes/${encodeURIComponent(id)}/dossier.pdf`;
+  $("#dossier").classList.remove("hidden");
+  $("#ds-download").href = url;
+  $("#ds-download").setAttribute("download", `evidence-dossier-${id}.pdf`);
+  $("#ds-body").innerHTML = `<div class="ds-compile"><div>▶ COMPILING EVIDENCE DOSSIER…<br/><span class="muted" style="font-size:11px">case summary · seller position · delivery timeline · address check · photos · policies</span><div class="bar"><div></div></div></div></div>`;
+  await sleep(1300);
+  $("#ds-body").innerHTML = `<iframe src="${url}#view=FitH" title="Evidence dossier"></iframe>`;
+}
+$("#ds-close").onclick = () => $("#dossier").classList.add("hidden");
+
+// ---------------- bridge for views.js and copilot.js ----------------
+window.DD = {
+  state, api, toast, loadList, saveRules, money, esc, imgFor, initials, burst,
+  async open(id) { window.DD.showView?.("disputes"); await selectDispute(id); },
+  async investigate(id) { await window.DD.open(id); analyze(state.current.dispute); },
+  async negotiate(id) { await window.DD.open(id); openArena(state.current.dispute); },
+  async simulate() { await api("/api/simulate/dispute", { method: "POST" }); },
 };
 
 $("#refresh").onclick = loadList;

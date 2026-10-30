@@ -19,6 +19,10 @@ Dispute Defender is an AI dispute analyst for PayPal sellers:
 - **Reads photos with AI vision.** Carrier delivery photos, buyer damage photos and seller uploads are analyzed for visible facts (house numbers, labels, GPS stamps, damage). Photos that support the seller are attached to the PayPal evidence submission.
 - **Negotiates, agent vs. agent.** For inquiry-stage disputes, the seller's agent rehearses a negotiation against a simulated buyer agent built from the buyer's own words, then sends the agreed amount to the real buyer as a PayPal offer.
 - **Runs on Autopilot.** PayPal webhooks trigger analysis the moment a dispute opens. The agent acts on its own only within rules the seller sets (minimum win odds, maximum amounts) and holds everything else for approval. Every automatic action is logged with the rule that allowed it.
+- **Builds an evidence dossier.** A professional PDF with the timeline, address check, AI-read photos and policies is attached to the PayPal evidence submission automatically.
+- **Prevents disputes before they happen.** Risk Radar scores each new PayPal order for fraud and dispute risk before it ships and recommends ship, require a signature, or hold.
+- **Finds the profit leaks.** An AI report over 90 days of disputes shows where money is lost and which fixes are worth the most per month.
+- **Talks.** Defender Copilot answers by voice ("brief me", "fight the headphones dispute") and drives the app hands-free.
 - **Human in control.** The agent's tools are read-only. Money moves only after approval or under an explicit rule.
 
 ## How PayPal is used

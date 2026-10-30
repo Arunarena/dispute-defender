@@ -8,6 +8,10 @@ import { recordLiveOrder, findOrder, findTracking, findCustomer } from "./store.
 import { seedPhotos, listPhotos, addUpload, analyzePhoto, readPhoto } from "./photos.js";
 import { negotiate } from "./negotiate.js";
 import { bus, rules, updateRules, decide } from "./autopilot.js";
+import { buildDossier } from "./dossier.js";
+import { listOrders, getOrder, addOrder, simulateOrder, scoreOrder, decideOrder, riskStats } from "./risk.js";
+import { buildReport } from "./insights.js";
+import { askCopilot } from "./copilot.js";
 
 const app = express();
 app.use(express.json({ limit: "8mb" }));
@@ -76,6 +80,9 @@ async function executeAction(dispute, rec, { source = "MANUAL", rule = null } = 
       const files = listPhotos(id)
         .filter((p) => p.analysis?.favors === "SELLER")
         .map((p) => readPhoto(p));
+      // Attach the full evidence dossier PDF as well.
+      const pdf = await buildDossier({ dispute, intel: intelFor(dispute), photos: listPhotos(id), recommendation: rec });
+      files.push({ bytes: pdf, mediaType: "application/pdf", filename: `evidence-dossier-${id}.pdf` });
       attached = files.length;
       if (sendLive)
         result = await paypal.provideEvidence(id, {
@@ -175,13 +182,16 @@ app.get("/api/events", (req, res) => {
   });
 });
 
+async function listAllDisputes() {
+  const sims = demoState.filter((d) => d.id.startsWith("PP-D-SIM-"));
+  const fromDemo = (list) => list.map(({ messages, items, ...rest }) => ({ ...rest, item: items[0]?.name, photos: listPhotos(rest.id).length }));
+  return live() ? [...fromDemo(sims), ...(await paypal.listDisputes())] : fromDemo(demoState);
+}
+
 app.get(
   "/api/disputes",
   wrap(async (req, res) => {
-    const sims = demoState.filter((d) => d.id.startsWith("PP-D-SIM-"));
-    const fromDemo = (list) => list.map(({ messages, items, ...rest }) => ({ ...rest, item: items[0]?.name, photos: listPhotos(rest.id).length }));
-    const list = live() ? [...fromDemo(sims), ...(await paypal.listDisputes())] : fromDemo(demoState);
-    res.json({ disputes: list, activity });
+    res.json({ disputes: await listAllDisputes(), activity });
   }),
 );
 
@@ -216,6 +226,18 @@ app.post(
     const rec = { ...(recommendations.get(dispute.id) ?? {}), ...req.body };
     if (!rec.verdict) return res.status(400).json({ error: "Run the analysis first." });
     res.json({ ok: true, ...(await executeAction(dispute, rec, { source: "MANUAL" })) });
+  }),
+);
+
+// ---- evidence dossier PDF ----
+app.get(
+  "/api/disputes/:id/dossier.pdf",
+  wrap(async (req, res) => {
+    const dispute = await loadDispute(req.params.id);
+    const pdf = await buildDossier({ dispute, intel: intelFor(dispute), photos: listPhotos(dispute.id), recommendation: recommendations.get(dispute.id) ?? null });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="evidence-dossier-${dispute.id}.pdf"`);
+    res.send(pdf);
   }),
 );
 
@@ -315,6 +337,88 @@ app.post(
   }),
 );
 
+// ---------- Risk Radar ----------
+app.get("/api/orders", (req, res) => res.json({ orders: listOrders(), stats: riskStats() }));
+
+app.post(
+  "/api/orders/:id/score",
+  wrap(async (req, res) => {
+    const order = getOrder(req.params.id);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    await scoreOrder(order);
+    res.json({ order });
+  }),
+);
+
+app.post(
+  "/api/orders/:id/decision",
+  wrap(async (req, res) => {
+    const order = decideOrder(req.params.id, req.body.decision);
+    publish({ type: "order_decision", order: { id: order.id, decision: order.decision, total: order.total } });
+    res.json({ order, stats: riskStats() });
+  }),
+);
+
+async function handleNewOrder(order, via) {
+  publish({ type: "order_new", via, order: { id: order.id, buyerName: order.buyerName, total: order.total, item: order.items[0]?.name } });
+  await scoreOrder(order);
+  publish({ type: "order_scored", order: { id: order.id, buyerName: order.buyerName, total: order.total, level: order.risk.level, score: order.risk.score, action: order.risk.action } });
+}
+
+app.post(
+  "/api/simulate/order",
+  wrap(async (req, res) => {
+    const order = simulateOrder();
+    res.json({ ok: true, orderId: order.id });
+    handleNewOrder(order, "simulated checkout").catch((err) => publish({ type: "autopilot_error", disputeId: order.id, message: err.message }));
+  }),
+);
+
+// ---------- Insights ----------
+app.get(
+  "/api/insights",
+  wrap(async (req, res) => {
+    res.json(await buildReport());
+  }),
+);
+
+// ---------- Copilot ----------
+const copilotCtx = {
+  disputes: async () =>
+    (await listAllDisputes()).map((d) => ({
+      id: d.id, buyerName: d.buyerName, item: d.item, amount: d.amount?.value, reason: d.reason, stage: d.stage, status: d.status,
+      daysLeft: d.sellerResponseDue ? Math.ceil((new Date(d.sellerResponseDue) - Date.now()) / 86400000) : null,
+      done: ["RESOLVED", "UNDER_REVIEW", "WAITING_FOR_BUYER_RESPONSE"].includes(d.status),
+      aiVerdict: recommendations.get(d.id)?.verdict ?? null, winOdds: recommendations.get(d.id)?.win_likelihood ?? null,
+    })),
+  dispute: async (id) => {
+    const d = await loadDispute(id);
+    return { dispute: d, intel: intelFor(d), recommendation: recommendations.get(id) ?? null };
+  },
+  overview: async () => {
+    const list = await listAllDisputes();
+    const open = list.filter((d) => !["RESOLVED", "UNDER_REVIEW", "WAITING_FOR_BUYER_RESPONSE"].includes(d.status));
+    return {
+      openDisputes: open.length,
+      atStake: open.reduce((s, d) => s + Number(d.amount.value), 0).toFixed(2),
+      saved: activity.reduce((s, a) => s + Number(a.saved || 0), 0).toFixed(2),
+      recentActions: activity.slice(0, 5),
+      autopilot: rules,
+      riskRadar: riskStats(),
+    };
+  },
+  orders: () => listOrders().map(({ id, buyerName, total, items, status, risk }) => ({ id, buyerName, total, item: items[0]?.name, status, risk: risk && { score: risk.score, level: risk.level, action: risk.action } })),
+};
+
+app.post(
+  "/api/copilot",
+  wrap(async (req, res) => {
+    const history = Array.isArray(req.body.history) ? req.body.history.slice(-10) : [];
+    if (!history.length) return res.status(400).json({ error: "Say something first." });
+    res.json(await askCopilot(history, copilotCtx));
+  }),
+);
+
 // ---------- Demo shop: real sandbox checkout that feeds the order system ----------
 app.get("/api/shop/items", (req, res) => res.json({ items: Object.values(SHOP_ITEMS) }));
 
@@ -347,6 +451,24 @@ app.post(
       address,
       item,
     });
+    const payerCountry = data.payer?.address?.country_code ?? shipping?.country_code ?? "US";
+    const order = addOrder({
+      buyerName: [data.payer?.name?.given_name, data.payer?.name?.surname].filter(Boolean).join(" ") || "PayPal buyer",
+      email: data.payer?.email_address ?? "",
+      items: [{ name: item.name, qty: 1 }],
+      total: item.price,
+      shippingAddress: address,
+      billingAddress: address,
+      ipCountry: payerCountry,
+      billingCountry: payerCountry,
+      accountAgeDays: 365,
+      priorOrders: 0,
+      priorDisputes: 0,
+      payerVerified: true,
+      shippingSpeed: "Standard",
+      paypalCaptureId: capture?.id,
+    });
+    handleNewOrder(order, "PayPal checkout").catch(() => {});
     res.json({ status: data.status, captureId: capture?.id, trackingNumber });
   }),
 );

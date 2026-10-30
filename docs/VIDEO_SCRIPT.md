@@ -12,9 +12,9 @@ Narration is about 400 words, which runs about 2:45 at a calm pace.
 ---
 
 ### 0:00–0:15 · Hook
-**Screen:** Dashboard. Slowly hover over the dispute cards.
+**Screen:** Dashboard. Press **Ctrl+K**, click the mic and say "Brief me". Let Copilot answer out loud.
 
-> "When a buyer opens a PayPal dispute, a small seller has days to respond, and the evidence is scattered across their store, the carrier and their inbox. Most just refund and lose the sale. Dispute Defender is an AI agent that fights back for them."
+> "When a buyer opens a PayPal dispute, a small seller has days to respond, and the evidence is scattered everywhere. Most just refund. Dispute Defender is an AI that fights back, and you can just talk to it."
 
 ### 0:15–0:55 · The agent investigates
 **Screen:** Click the **headphones** dispute ($129, "never arrived"). Scroll past the buyer's message and the carrier photo. Click **⚡ DEPLOY AI AGENT**. Let the processing screen play. Don't skip it.
@@ -34,14 +34,18 @@ Narration is about 400 words, which runs about 2:45 at a calm pace.
 **Screen:** Click **✓ SEND OFFER VIA PAYPAL**.
 
 ### 1:55–2:35 · Autopilot
-**Screen:** Point at the Autopilot panel. Flip the switch **on**. Show the sliders. Click **📡 Simulate incoming dispute** three times, about a second apart. Let the alerts and card updates play.
+**Screen:** Point at the Autopilot panel. Flip the switch **on**. Show the sliders. Click **📡 Simulate dispute** three times, about a second apart. Let the alerts and card updates play.
 
 > "Now, Autopilot. PayPal sends a webhook the moment a dispute opens, and the agent handles it at once, but only within rules I set. Fight automatically above eighty percent odds and under two hundred dollars. Settle small refunds under twenty-five. Here come three disputes. It fights the speaker claim and settles the napkins on its own. But this two-hundred-nineteen-dollar fraud case is over my limit, so it waits for my approval. Every action is logged with the rule that allowed it."
 
 ### 2:35–2:50 · Close
-**Screen:** Zoom out to the full dashboard, showing the "Revenue protected" number and the action log.
+**Screen:** Click the **🛰️ Risk Radar** tab and let the scan run. Click **HOLD & VERIFY** on Kevin's $579 order (confetti). Flash the **📊 Insights** tab.
 
-> "Dispute Defender: Claude for reasoning and vision, PayPal's Disputes, Orders and Webhooks APIs to act. It protects revenue, saves sellers hours, and keeps a human in charge."
+> "And it prevents disputes too. Risk Radar scores every PayPal order before it ships, and this one is fraud. Hold it, and that dispute never happens."
+
+> "Dispute Defender: Claude for reasoning, vision and voice, and PayPal's Disputes, Orders and Webhooks APIs to act. It protects revenue, saves sellers hours, and keeps a human in charge."
+
+*Timing tip: with the Risk Radar scene added, trim the Autopilot narration to keep the whole video under 3:00. Rehearse once with a timer.*
 
 ---
 

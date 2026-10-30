@@ -23,12 +23,18 @@
           <p class="tagline">AI dispute command center for PayPal sellers</p>
         </div>
       </div>
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-view="disputes">⚔️ Disputes</button>
+        <button class="tab" data-view="radar">🛰️ Risk Radar</button>
+        <button class="tab" data-view="insights">📊 Insights</button>
+      </nav>
       <div class="modes" id="modes"></div>
-      <button class="sim-btn" id="simulate" title="Simulates PayPal sending a CUSTOMER.DISPUTE.CREATED webhook">📡 Simulate incoming dispute</button>
+      <button class="sim-btn" id="simulate" title="Simulates PayPal sending a CUSTOMER.DISPUTE.CREATED webhook">📡 Simulate dispute</button>
       <div class="clock" id="clock">--:--:--</div>
       <a class="shop-link" href="/shop.html">🛍️ Demo shop</a>
     </header>
 
+    <div class="view" id="view-disputes">
     <section class="stats" id="stats"></section>
 
     <main class="layout">
@@ -66,6 +72,39 @@
         </div>
       </section>
     </main>
+    </div>
+
+    <!-- Risk Radar: score orders before they ship -->
+    <div class="view hidden" id="view-radar"></div>
+
+    <!-- Insights: where disputes cost money -->
+    <div class="view hidden" id="view-insights"></div>
+
+    <!-- Copilot -->
+    <button class="copilot-orb" id="copilot-orb" title="Ask Defender (Ctrl+K)"><span class="orb-core">🛡️</span><span class="orb-label">Ask Defender <kbd>Ctrl K</kbd></span></button>
+    <div class="copilot hidden" id="copilot">
+      <div class="cp-head">
+        <div class="cp-title"><span class="dot live"></span> DEFENDER COPILOT</div>
+        <button class="cp-icon" id="cp-voice" title="Speak replies aloud">🔊</button>
+        <button class="cp-icon" id="cp-close" title="Close (Esc)">✕</button>
+      </div>
+      <div class="cp-wave" id="cp-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="cp-log" id="cp-log"></div>
+      <div class="cp-chips" id="cp-chips"></div>
+      <form class="cp-input" id="cp-form">
+        <button type="button" class="cp-mic" id="cp-mic" title="Hold a conversation by voice">🎙️</button>
+        <input id="cp-text" placeholder="Ask anything… e.g. “brief me” or “fight the headphones dispute”" autocomplete="off" />
+        <button type="submit" class="cp-send">➤</button>
+      </form>
+    </div>
+
+    <!-- Evidence dossier viewer -->
+    <div class="dossier hidden" id="dossier">
+      <div class="ds-box">
+        <div class="ds-head"><span>📄 EVIDENCE DOSSIER</span><a id="ds-download" class="mini-btn" download>⬇ DOWNLOAD PDF</a><button class="wr-skip" id="ds-close">close ✕</button></div>
+        <div class="ds-body" id="ds-body"></div>
+      </div>
+    </div>
 
     <!-- Full-screen AI processing view -->
     <div class="warroom hidden" id="warroom">
@@ -140,5 +179,7 @@
     </div>
 
     <script src="/app.js" type="module"></script>
+    <script src="/views.js" type="module"></script>
+    <script src="/copilot.js" type="module"></script>
   </body>
 </html>

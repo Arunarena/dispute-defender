@@ -27,7 +27,11 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 5. **📸 Photo evidence with AI vision:** Claude reads carrier delivery photos, buyer damage photos and your own uploads. It reads house numbers, label text and GPS stamps, and says which side each photo supports. Photos that support you are attached as files when evidence goes to PayPal.
 6. **🤝 Negotiation arena (agent vs. agent):** for inquiry-stage disputes, your seller agent negotiates live against a simulated buyer agent built from the buyer's own words, with a price track showing the offers converging. When they reach a deal, one click sends it to the real buyer through `make-offer`.
 7. **🤖 Autopilot with PayPal webhooks:** when PayPal sends `CUSTOMER.DISPUTE.CREATED`, the agent analyzes the dispute right away and acts **only within your rules** (e.g. "auto-fight if win odds ≥ 80% and amount ≤ $200", "auto-settle refunds ≤ $25"). Everything else waits for approval. Each automatic action is logged with the rule that allowed it. Click **📡 Simulate incoming dispute** to see it without a public URL.
-8. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them.
+8. **📄 Evidence dossier PDF:** one click builds a professional evidence document with the case summary, the seller's position, a delivery timeline, an address check, AI-analyzed photos and policies. It's attached automatically when evidence is submitted to PayPal. Internal notes like margins are left out.
+9. **🎙️ Defender Copilot:** a voice and chat assistant (Ctrl+K or the mic). Ask "brief me", "what's due soon?" or "fight the headphones dispute". It answers out loud and drives the app (opens cases, starts investigations, opens negotiations, toggles Autopilot), but it never moves money.
+10. **🛰️ Risk Radar (prevention):** every new PayPal order is scored for fraud and dispute risk *before it ships*, with an explanation of each signal (address mismatch, freight forwarders, IP country, account age, unverified payer…). Each order gets a recommendation: ship, ship with signature, or hold and verify. Holding a fraudulent order counts as "fraud prevented".
+11. **📊 Insights:** an AI "profit leak" report over 90 days of dispute history, with charts. The numbers are computed in code and the AI only interprets them. It shows where money is lost (root cause, product, week) and the fixes worth the most per month.
+12. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them.
 
 ### Demo scenarios (included)
 
@@ -109,6 +113,12 @@ Browser (public/)                 Node/Express (src/server.js)
 | [src/agent.js](src/agent.js) | Claude agent: system prompt, tools, recommendation schema |
 | [src/paypal.js](src/paypal.js) | PayPal OAuth, Disputes API (list, details, evidence, offer, accept, message), Orders API |
 | [src/store.js](src/store.js) | The seller's back office: orders, shipments, customers, policies |
+| [src/dossier.js](src/dossier.js) | Evidence dossier PDF builder (pdfkit) |
+| [src/copilot.js](src/copilot.js) | Voice/chat Copilot: Claude agent with data tools and app-action tools |
+| [src/risk.js](src/risk.js) | Risk Radar: order fraud and dispute-risk scoring |
+| [src/insights.js](src/insights.js) | Dispute analytics and the AI profit-leak report |
+| [public/views.js](public/views.js) | Risk Radar and Insights screens, charts |
+| [public/copilot.js](public/copilot.js) | Copilot panel, speech recognition and speech output |
 | [src/photos.js](src/photos.js) | Photo evidence storage and Claude vision analysis |
 | [src/negotiate.js](src/negotiate.js) | Agent-vs-agent negotiation arena |
 | [src/autopilot.js](src/autopilot.js) | Autopilot rules and decision logic |
@@ -123,6 +133,8 @@ Browser (public/)                 Node/Express (src/server.js)
 - **Claude Opus 5.5 (`claude-opus-5-5`) through the Anthropic TypeScript/JS SDK (`@anthropic-ai/sdk`).** The agent runs with the SDK's **tool runner**. Claude decides which back-office lookups to make for each dispute reason (for example, it skips tracking on a fraud case and checks it first on a "not received" case). It weighs the evidence the way a PayPal adjudicator would, then calls `submit_recommendation`. That tool has a strict Zod schema, so the UI always receives valid structured output: verdict, odds, reasons, PayPal `evidence_type`, carrier tracking, offer amount and drafted text.
 - **Vision:** each photo is sent to Claude as an image along with the dispute context. Claude returns structured findings (summary, visible facts, which side the photo supports, confidence).
 - **Negotiation:** two Claude roles take turns. The seller agent sees the store's private data (orders, tracking, policies). The buyer agent sees only what the buyer wrote. Each turn returns a structured message, refund amount and decision, and amounts are clamped to the disputed total.
+- **Copilot:** a Claude agent with read-only data tools plus "action" tools that drive the UI. Voice uses the browser's speech recognition and speech synthesis.
+- **Risk Radar and Insights:** structured-output calls. Risk returns a score, level, action and signed signals. Insights interprets aggregates that the code has already computed, so it can't invent numbers.
 - **Safety:** every tool the agent can call is read-only. Money only moves after a person approves. Server-side refusal fallbacks are enabled (`fallbacks: "default"`).
 - **Demo mode** uses a scripted rules engine ([src/scripted.js](src/scripted.js)) so judges can click through without an API key. The header shows which engine is active.
 
