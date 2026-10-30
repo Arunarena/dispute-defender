@@ -45,7 +45,7 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 Requires **Node.js 20+**.
 
 ```bash
-git clone <this repo>
+git clone https://github.com/Arunarena/dispute-defender.git
 cd dispute-defender
 npm install
 npm start

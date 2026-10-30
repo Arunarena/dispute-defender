@@ -37,4 +37,4 @@ Dispute Defender is an AI dispute analyst for PayPal sellers:
 
 ## Try it
 - Hosted demo: `<your Render URL>`
-- Code: `<your GitHub URL>`. Runs with `npm install && npm start` and no keys needed (demo mode).
+- Code: https://github.com/Arunarena/dispute-defender. Runs with `npm install && npm start` and no keys needed (demo mode).
