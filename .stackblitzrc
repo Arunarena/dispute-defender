@@ -1,0 +1,5 @@
+{
+  "installDependencies": true,
+  "startCommand": "npm start",
+  "env": { "PORT": "3000" }
+}

@@ -59,7 +59,9 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 
 ## Quick start (2 minutes, no keys needed)
 
-Requires **Node.js 20+**.
+**Fastest:** [open it in StackBlitz](https://stackblitz.com/github/Arunarena/dispute-defender). It runs in your browser with nothing to install (Chrome or Edge on desktop).
+
+Or run it locally. Requires **Node.js 20+**.
 
 ```bash
 git clone https://github.com/Arunarena/dispute-defender.git
@@ -130,14 +132,13 @@ Restart with `npm start`. Both badges in the header should now show live mode.
 
 [mobile/](mobile/) is a separate Android app (Capacitor). It connects to this server so you can review AI recommendations, approve responses, see PayPal's rulings and get alerts about new disputes from your phone. See [mobile/README.md](mobile/README.md) to build the APK and connect it.
 
-## Deploy to Hugging Face Spaces (free hosted demo, no card)
+## Run it in your browser (no install, no account)
 
-1. At [huggingface.co/new-space](https://huggingface.co/new-space), choose **SDK: Docker**, template **Blank**, hardware **CPU basic (free)**, visibility **Public**.
-2. In the new Space, go to **Files → + Add file → Create a new file**. Name it `Dockerfile`, paste in [deploy/huggingface/Dockerfile](deploy/huggingface/Dockerfile) and commit. The Space builds the app straight from this GitHub repo.
-3. Optional: under **Settings → Variables and secrets**, add a secret `NFC_TAG_SECRET` with any long random text, so NFC tags you've written keep working after rebuilds.
-4. Share the **direct link**, `https://<user>-<space>.hf.space`. The huggingface.co page shows the app inside a frame, and passkeys and installing don't work in a frame.
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/Arunarena/dispute-defender)
 
-To pick up new commits, use **Settings → Factory rebuild**. The Space sleeps when idle and wakes on the next visit.
+StackBlitz runs the Node server inside your browser tab (best in Chrome or Edge on a desktop). It installs, starts and opens the dashboard in demo mode, with no keys needed. The first load takes about a minute.
+
+A [Dockerfile](deploy/huggingface/Dockerfile) that builds the app straight from this repo is also included for any Docker host.
 
 ## Deploy to Render (hosted demo)
 
