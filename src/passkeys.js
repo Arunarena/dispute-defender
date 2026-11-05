@@ -7,9 +7,23 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from "@simplewebauthn/server";
+import { createRequire } from "module";
 
 const FILE = path.resolve("data", "passkeys.json");
+
+// Loaded on first use, from the library's CommonJS build. Its ES-module build has an import
+// cycle that some runtimes (StackBlitz WebContainers) can't link, which would stop the whole app.
+let lib = null;
+function webauthn() {
+  if (!lib) {
+    try {
+      lib = createRequire(import.meta.url)("@simplewebauthn/server");
+    } catch (err) {
+      throw Object.assign(new Error(`Passkeys aren't available on this server: ${err.message}`), { status: 503 });
+    }
+  }
+  return lib;
+}
 const RP_NAME = "Dispute Defender";
 
 function load() {
@@ -50,7 +64,7 @@ export function status(ctx) {
 export async function startRegistration({ rpID, label }) {
   sweep(ceremonies);
   const db = load();
-  const options = await generateRegistrationOptions({
+  const options = await webauthn().generateRegistrationOptions({
     rpName: RP_NAME,
     rpID,
     userName: "seller",
@@ -68,7 +82,7 @@ export async function finishRegistration({ ceremony, response, rpID, origins }) 
   const c = ceremonies.get(ceremony);
   ceremonies.delete(ceremony);
   if (!c || c.kind !== "register" || c.exp < Date.now()) throw fail("Registration expired. Try again.");
-  const v = await verifyRegistrationResponse({ response, expectedChallenge: c.challenge, expectedOrigin: origins, expectedRPID: rpID, requireUserVerification: true });
+  const v = await webauthn().verifyRegistrationResponse({ response, expectedChallenge: c.challenge, expectedOrigin: origins, expectedRPID: rpID, requireUserVerification: true });
   if (!v.verified) throw fail("Passkey could not be verified.", 401);
   const { credential } = v.registrationInfo;
   const db = load();
@@ -82,7 +96,7 @@ export async function startApproval({ rpID, action, holder, liveMode }) {
   sweep(ceremonies);
   const creds = load().credentials.filter((c) => liveMode || c.id === holder);
   if (!creds.length) throw fail("No passkey registered on this device.");
-  const options = await generateAuthenticationOptions({ rpID, allowCredentials: creds.map((c) => ({ id: c.id, transports: c.transports })), userVerification: "required" });
+  const options = await webauthn().generateAuthenticationOptions({ rpID, allowCredentials: creds.map((c) => ({ id: c.id, transports: c.transports })), userVerification: "required" });
   const id = crypto.randomUUID();
   ceremonies.set(id, { challenge: options.challenge, kind: "approve", action, exp: Date.now() + 5 * 60000 });
   return { ceremony: id, options };
@@ -95,7 +109,7 @@ export async function finishApproval({ ceremony, response, rpID, origins }) {
   const db = load();
   const cred = db.credentials.find((x) => x.id === response.id);
   if (!cred) throw fail("Unknown passkey.", 401);
-  const v = await verifyAuthenticationResponse({
+  const v = await webauthn().verifyAuthenticationResponse({
     response,
     expectedChallenge: c.challenge,
     expectedOrigin: origins,
