@@ -25,6 +25,10 @@ export function describe(ev) {
       return ev.order.level === "HIGH" ? `🛑 High-risk order ${ev.order.id}: ${ev.order.buyerName}, ${money(ev.order.total)}, risk ${ev.order.score}. AI says ${ev.order.action}. ${baseUrl()}` : null;
     case "deadline":
       return `⏰ ${ev.disputeId} is due in ${ev.hoursLeft}h: ${ev.buyerName}, ${money(ev.amount)}. Respond or PayPal rules for the buyer. ${caseLink(ev.disputeId)}`;
+    case "package_tap":
+      if (ev.kind === "CONFIRM_OK") return `📲 ${ev.buyerName} tapped their package and confirmed it arrived OK (${ev.item}).`;
+      if (ev.kind === "PROBLEM") return `⚠️ ${ev.buyerName} tapped their package and reported a problem with ${ev.item}: "${ev.note ?? ""}". Fix it now, before it becomes a PayPal dispute.`;
+      return null;
     case "test":
       return `✅ Dispute Defender test alert. This channel is connected. (${baseUrl()})`;
     default:
@@ -33,7 +37,7 @@ export function describe(ev) {
 }
 
 // Automations also get these, even though they are too noisy for a chat channel.
-const DATA_ONLY = new Set(["action", "dispute_update", "order_decision"]);
+const DATA_ONLY = new Set(["action", "dispute_update", "order_decision", "package_tap", "tag_written"]);
 
 async function post(id, url, body, label, headers = {}) {
   const t0 = Date.now();

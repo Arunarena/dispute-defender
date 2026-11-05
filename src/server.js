@@ -17,6 +17,8 @@ import { integrationStatus, logCall, timed, CATALOG } from "./integrations.js";
 import { send as sendAlert, startNotifier } from "./notify.js";
 import { buildCalendar } from "./calendar.js";
 import { shippoTestMode } from "./carriers.js";
+import { createTag, markWritten, verifyToken, recordTap, deviceLabel, tagUrl, tagEvidence, listTags } from "./nfc.js";
+import { findTag, findTagsFor } from "./store.js";
 import { calibrate, casePattern, notePrediction, pendingFor, pendingIds, outcomeFor, recordOutcome, outcomeFromPayPal, trackRecord } from "./outcomes.js";
 
 const app = express();
@@ -100,10 +102,13 @@ async function loadDispute(id) {
 
 function intelFor(dispute) {
   const order = dispute.transactionId ? findOrder(dispute.transactionId) : null;
+  const tracking = order?.shipping ? findTracking(order.shipping.trackingNumber) : null;
+  const delivered = tracking?.status === "DELIVERED" ? tracking.events?.at(-1)?.time : null;
   return {
     order,
-    tracking: order?.shipping ? findTracking(order.shipping.trackingNumber) : null,
+    tracking,
     customer: order ? findCustomer(order.customerEmail) : null,
+    packageTag: dispute.transactionId ? tagEvidence(dispute.transactionId, delivered) : null,
   };
 }
 
@@ -269,6 +274,11 @@ app.get(
       intel: intelFor(dispute),
       photos: listPhotos(dispute.id),
       recommendation: recommendations.get(dispute.id) ?? null,
+      // Link for the order's NFC tag, so the seller can write it or simulate a tap.
+      ...(() => {
+        const tag = dispute.transactionId ? findTagsFor(dispute.transactionId)[0] : null;
+        return tag ? { packageTagUrl: tagUrl(tag.id, baseUrl(req)), packageTagLocal: /localhost|127\.0\.0\.1/.test(baseUrl(req)) } : {};
+      })(),
       pending: pendingFor(dispute.id),
       outcome: outcomeFor(dispute.id),
       // Demo: simulated ruling. Sandbox: a real PayPal ruling (adjudicate). Live PayPal: arrives by webhook.
@@ -591,6 +601,11 @@ app.post(
       order.status === "SHIPPED" ? await pushTracking(order)
       : order.status === "CANCELLED" ? await refundOrder(order)
       : null;
+    // Every shipped box gets a Tap-to-Confirm tag.
+    if (order.status === "SHIPPED") {
+      const tag = createTag({ transactionId: order.paypalCaptureId ?? order.id, buyerName: order.buyerName, items: order.items.map((i) => i.name), total: order.total });
+      order.tagId = tag.id;
+    }
     publish({ type: "order_decision", order: { id: order.id, decision: order.decision, total: order.total }, integration });
     res.json({ order, stats: riskStats(), integration });
   }),
@@ -741,6 +756,66 @@ async function checkDeadlines() {
     publish({ type: "deadline", disputeId: d.id, hoursLeft, amount: d.amount, buyerName: d.buyerName, item: d.item });
   }
 }
+
+// ---------- Tap-to-Confirm (NFC package tags) ----------
+const STORE_NAME = "Juniper & Co.";
+const tagView = (tag, req) => ({ ...tag, url: tagUrl(tag.id, baseUrl(req)), localOnly: /localhost|127\.0\.0\.1/.test(baseUrl(req)) });
+
+app.get("/api/nfc/tags", (req, res) => res.json({ tags: listTags().map((t) => tagView(t, req)) }));
+app.get("/api/nfc/tags/:id", (req, res) => {
+  const tag = findTag(req.params.id);
+  if (!tag) return res.status(404).json({ error: "Tag not found" });
+  res.json({ tag: tagView(tag, req) });
+});
+// The seller's phone wrote the link to a sticker.
+app.post("/api/nfc/tags/:id/written", (req, res) => {
+  const tag = markWritten(req.params.id);
+  if (!tag) return res.status(404).json({ error: "Tag not found" });
+  publish({ type: "tag_written", tagId: tag.id, transactionId: tag.transactionId });
+  res.json({ tag: tagView(tag, req) });
+});
+
+// The page a phone opens when it touches the box.
+app.get("/t/:token", (req, res) => res.sendFile(path.resolve("public", "tap.html")));
+
+const publicTag = (tag) => ({
+  store: STORE_NAME,
+  firstName: tag.label.buyerName?.split(" ")[0] ?? "there",
+  items: tag.label.items,
+  done: tag.taps.find((t) => t.kind === "CONFIRM_OK" || t.kind === "PROBLEM")?.kind ?? null,
+});
+
+app.get("/api/tap/:token", (req, res) => {
+  const tag = verifyToken(req.params.token);
+  if (!tag) return res.status(404).json({ error: "This tag isn't recognized." });
+  const { tap, duplicate } = recordTap(tag, { kind: "OPEN", device: deviceLabel(req.get("user-agent")) });
+  if (!duplicate) publish({ type: "package_tap", kind: "OPEN", tagId: tag.id, transactionId: tag.transactionId, buyerName: tag.label.buyerName, item: tag.label.items[0], device: tap.device });
+  res.json(publicTag(tag));
+});
+
+app.post(
+  "/api/tap/:token",
+  wrap(async (req, res) => {
+    const tag = verifyToken(req.params.token);
+    if (!tag) return res.status(404).json({ error: "This tag isn't recognized." });
+    const kind = req.body.kind === "PROBLEM" ? "PROBLEM" : "CONFIRM_OK";
+    const loc = req.body.location;
+    const location = loc && Number.isFinite(+loc.lat) && Number.isFinite(+loc.lon) ? { lat: +(+loc.lat).toFixed(5), lon: +(+loc.lon).toFixed(5), accuracy: Math.round(+loc.accuracy || 0) } : null;
+    let photoUrl = null;
+    const m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/i.exec(req.body.photo ?? "");
+    if (m) {
+      const bytes = Buffer.from(m[2], "base64");
+      if (bytes.length > 5 * 1024 * 1024) return res.status(400).json({ error: "Photo must be under 5 MB." });
+      const name = `tap-${tag.id}-${Date.now()}.${m[1].toLowerCase() === "jpeg" ? "jpg" : m[1].toLowerCase()}`;
+      fs.mkdirSync(path.resolve("data", "uploads"), { recursive: true });
+      fs.writeFileSync(path.resolve("data", "uploads", name), bytes);
+      photoUrl = `/uploads/${name}`;
+    }
+    const { tap } = recordTap(tag, { kind, device: deviceLabel(req.get("user-agent")), location, note: req.body.note, photoUrl });
+    publish({ type: "package_tap", kind, tagId: tag.id, transactionId: tag.transactionId, buyerName: tag.label.buyerName, item: tag.label.items[0], device: tap.device, note: tap.note ?? null, located: Boolean(location) });
+    res.json({ ok: true, ...publicTag(tag) });
+  }),
+);
 
 // ---------- Demo shop: real sandbox checkout that feeds the order system ----------
 app.get("/api/shop/items", (req, res) => res.json({ items: Object.values(SHOP_ITEMS) }));

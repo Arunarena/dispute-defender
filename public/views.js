@@ -150,8 +150,18 @@ function drawDetail() {
       ${["SHIP", "SHIP_WITH_SIGNATURE", "HOLD_AND_VERIFY", "CANCEL"].map((a) => `<button class="act-btn ${{ SHIP: "ship", SHIP_WITH_SIGNATURE: "sign", HOLD_AND_VERIFY: "hold", CANCEL: "cancel" }[a]} ${r.action === a ? "rec" : ""}" data-a="${a}" ${can(a) ? "" : "disabled"} title="${{ SHIP: "Adds tracking to the PayPal transaction", SHIP_WITH_SIGNATURE: "Adds tracking to PayPal; require a signature with the carrier", HOLD_AND_VERIFY: "Hold until you've verified the buyer", CANCEL: "Refund the PayPal payment now, before it can become a chargeback" }[a]}">${{ SHIP: "📦", SHIP_WITH_SIGNATURE: "✍️", HOLD_AND_VERIFY: "⏸", CANCEL: "💸" }[a]} ${ACTION_LABEL[a]}${r.action === a ? " · AI PICK" : ""}</button>`).join("")}
     </div>
     ${after ? `<div class="rr-after">${after}</div>` : ""}
+    ${o.tagId ? `<div class="section-title" style="margin-top:16px">&gt; NFC TAP-TO-CONFIRM TAG <span class="muted">(stick it inside the box)</span></div><div class="nfc-card" id="rr-tag" data-tag="${esc(o.tagId)}"><span class="muted">loading tag…</span></div>` : ""}
   </div>`;
   document.querySelectorAll(".act-btn").forEach((b) => (b.onclick = () => decide(o.id, b.dataset.a)));
+  if (o.tagId) loadRadarTag(o.tagId);
+}
+
+async function loadRadarTag(id) {
+  const { tag } = await DD().api(`/api/nfc/tags/${encodeURIComponent(id)}`);
+  const el = $("#rr-tag");
+  if (!el || el.dataset.tag !== id || !window.NFC) return;
+  el.innerHTML = window.NFC.timeline(tag) + window.NFC.actions(tag, tag.url, { localOnly: tag.localOnly });
+  window.NFC.bind(el, DD().toast);
 }
 
 function drawRadarAll() { drawStats(); drawRadar(); drawOrders(); drawDetail(); }
@@ -587,4 +597,11 @@ window.addEventListener("dd-event", (e) => {
   intg.flash.add(ev.entry.seq);
   setTimeout(() => intg.flash.delete(ev.entry.seq), 3000);
   loadIntegrations();
+});
+
+window.addEventListener("dd-event", (e) => {
+  const ev = e.detail;
+  if (ev.type !== "package_tap" && ev.type !== "tag_written") return;
+  const el = document.getElementById("rr-tag");
+  if (el && el.dataset.tag === ev.tagId) loadRadarTag(ev.tagId);
 });

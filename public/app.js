@@ -201,6 +201,8 @@ function renderDetail({ withRec = true } = {}) {
     <div class="section-title">&gt; PHOTO EVIDENCE · AI VISION</div>
     <div class="photos" id="photos"></div>
 
+    <div id="nfc-tag"></div>
+
     <div class="analyze-row">
       <button class="cta" id="analyze">${rec ? "⟳ RE-RUN ANALYSIS" : "⚡ DEPLOY AI AGENT"}</button>
       <button class="cta alt" id="negotiate" ${d.stage === "INQUIRY" && !isDone(d.status) ? "" : "disabled"} title="${d.stage === "INQUIRY" ? "" : "PayPal only allows offers in the inquiry stage"}">🤝 NEGOTIATION ARENA</button>
@@ -210,8 +212,27 @@ function renderDetail({ withRec = true } = {}) {
   $("#analyze").onclick = () => analyze(d);
   $("#negotiate").onclick = () => openArena(d);
   renderPhotos();
+  renderTag();
   renderRuling();
   if (rec && withRec) renderRecommendation(false);
+}
+
+// ---------------- NFC package tag (Tap-to-Confirm) ----------------
+function renderTag() {
+  const el = $("#nfc-tag");
+  if (!el || !window.NFC) return;
+  const { dispute: d, intel, packageTagUrl, packageTagLocal } = state.current;
+  const tag = intel?.packageTag;
+  if (!tag) return (el.innerHTML = "");
+  const afterDelivery = tag.taps.some((t) => t.hoursAfterDelivery != null && t.hoursAfterDelivery >= 0);
+  const flag =
+    d.reason === "MERCHANDISE_OR_SERVICE_NOT_RECEIVED" && afterDelivery ? `<div class="nfc-flag">⚡ A phone tapped the tag inside the box after delivery. That contradicts "never arrived".</div>`
+    : tag.buyerReportedProblem ? `<div class="nfc-flag warn">⚠ The buyer reported a problem when they tapped the package.</div>`
+    : tag.buyerConfirmedOk ? `<div class="nfc-flag">✅ The buyer confirmed the order arrived OK.</div>`
+    : "";
+  el.innerHTML = `<div class="section-title">&gt; PACKAGE TAG · NFC TAP-TO-CONFIRM</div>
+    <div class="nfc-card ${flag ? "strong" : ""}">${flag}${window.NFC.timeline(tag)}${packageTagUrl ? window.NFC.actions({ id: tag.tagId }, packageTagUrl, { localOnly: packageTagLocal }) : ""}</div>`;
+  window.NFC.bind(el, toast);
 }
 
 // ---------------- outcome: PayPal's ruling vs. the agent's prediction ----------------
@@ -994,6 +1015,23 @@ function connectEvents() {
         toast(`⚖️ PAYPAL RULED · ${m.label}`, `${ev.entry.disputeId}: kept $${Number(ev.entry.kept).toFixed(2)} (predicted ${ev.entry.odds}%). Track Record updated.`, ev.entry.outcome === "LOST" ? "warn" : "good");
         feed(`⚖ ${ev.entry.disputeId}: ${m.label} · learned`, ev.entry.outcome === "LOST" ? "bad" : "good");
         if (state.current?.dispute.id === ev.entry.disputeId && !state.current.outcome) await refreshRuling(ev.entry.disputeId);
+        break;
+      }
+      case "package_tap": {
+        const msg = {
+          OPEN: ["📲 PACKAGE TAPPED", `${ev.buyerName}'s phone just tapped the ${ev.item} box (${ev.device}).`, ""],
+          CONFIRM_OK: ["✅ DELIVERY CONFIRMED", `${ev.buyerName} confirmed the ${ev.item} arrived OK${ev.located ? ", with GPS" : ""}.`, "good"],
+          PROBLEM: ["⚠️ PROBLEM REPORTED AT DELIVERY", `${ev.buyerName}: "${ev.note ?? ""}". Fix it before it becomes a PayPal dispute.`, "warn"],
+        }[ev.kind];
+        if (msg) toast(...msg);
+        feed(`📲 ${ev.tagId}: ${ev.kind.toLowerCase().replace("_", " ")}`, ev.kind === "PROBLEM" ? "warn" : "good");
+        if (state.current?.dispute?.transactionId === ev.transactionId) {
+          const fresh = await api(`/api/disputes/${encodeURIComponent(state.current.dispute.id)}`).catch(() => null);
+          if (fresh && state.current?.dispute?.id === fresh.dispute.id) {
+            state.current = { ...fresh, recommendation: state.current.recommendation ?? fresh.recommendation };
+            renderTag();
+          }
+        }
         break;
       }
       case "dispute_update": {

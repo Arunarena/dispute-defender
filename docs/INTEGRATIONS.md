@@ -29,6 +29,20 @@ Webhook URL: `https://<your-host>/api/webhooks/paypal`. Signatures are verified 
 - `POST https://addressvalidation.googleapis.com/v1:validateAddress` with USPS CASS for US addresses.
 - Risk Radar checks each shipping address before scoring and adds signals: **mail-drop (USPS CMRA)** +22, **undeliverable** +14, **unconfirmed parts** +6, **business address** +5. Claude sees the same facts when it scores.
 
+### NFC Tap-to-Confirm
+
+Shipping an order in Risk Radar creates a tag for it. Each tag holds a link like `https://<host>/t/tg-1a2b3c4d5e.<signature>`, signed with HMAC-SHA256 so nobody can guess another order's link.
+
+1. **Write it.** In Chrome on Android, open the dashboard over HTTPS (your Render URL) and tap **✍️ Write NFC tag**, then hold a blank NTAG213/215/216 sticker to the phone. This uses the Web NFC API (`NDEFReader.write`). On other devices, **🔗 Copy link** and write it with any NFC writer app.
+2. **Stick it inside the box.**
+3. **The buyer taps the box.** iPhones (XS and later) and Android phones open NFC links natively, so no app is needed. `public/tap.html` records an `OPEN` tap (time and device type, never the full user agent). The buyer can then confirm arrival (with optional GPS) or report a problem with a note and photo.
+4. **The seller is told at once.** You get a dashboard toast, plus Slack, Discord and Zapier alerts for confirmations and problems.
+5. **The agent uses it.** `check_package_tag` returns the taps, with hours since the carrier's delivery scan. The evidence PDF lists them.
+
+In demo mode, **👆 Simulate buyer tap** opens the same buyer page.
+
+**Limits:** a plain NTAG213 stores a fixed link, so a copied link could be replayed, and the agent is told to treat a tap as strong but not cryptographic proof. For production, **NTAG 424 DNA** tags with SUN messages add a fresh AES-CMAC signature and counter to every tap. Verifying those server-side is the next step.
+
 ### Alerts and automation
 
 | Channel | Key | Notes |

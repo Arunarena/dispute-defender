@@ -33,3 +33,6 @@ services:
         sync: false
       - key: OUTBOUND_WEBHOOK_SECRET
         sync: false
+      # Signs NFC tag links. Set it once so tags you've written keep working after redeploys.
+      - key: NFC_TAG_SECRET
+        generateValue: true

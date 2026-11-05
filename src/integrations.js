@@ -24,6 +24,8 @@ export const CATALOG = [
     what: "Live tracking from USPS, UPS, FedEx, DHL and 40+ more carriers, for the agent and the evidence dossier. A shippo_test_ key works with the SHIPPO_DELIVERED test number." },
   { id: "google_address", group: "Evidence & fraud signals", name: "Google Address Validation", env: ["GOOGLE_MAPS_API_KEY"], live: () => has("GOOGLE_MAPS_API_KEY"),
     what: "Risk Radar checks each shipping address: is it deliverable, residential or business, a PO box, or a mail-drop (USPS CMRA), a common sign of reshipping fraud." },
+  { id: "nfc", group: "Evidence & fraud signals", name: "NFC Tap-to-Confirm tags", env: [], live: () => true,
+    what: "Each shipped box gets a signed NFC sticker. A buyer's phone tap is logged as proof the package arrived, and they can confirm or report a problem, no app needed. Write tags from Chrome on Android (Web NFC) or any NFC writer app." },
   { id: "claude", group: "Evidence & fraud signals", name: "Claude API", env: ["ANTHROPIC_API_KEY"], live: () => has("ANTHROPIC_API_KEY") || has("ANTHROPIC_AUTH_TOKEN"),
     what: "The investigating agent, photo vision, negotiation, Risk Radar scoring, Insights and Copilot." },
   // ---- Alerts & automation ----

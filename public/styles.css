@@ -701,3 +701,24 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius
 .ig-log .a { font-family: var(--mono); color: var(--cyan); font-size: 10.5px; margin-top: 3px; word-break: break-all; }
 .ig-log .d { color: var(--muted); margin-top: 2px; }
 @media (max-width: 1000px) { .ig-grid { grid-template-columns: 1fr; } .ig-log-panel { position: static; max-height: none; } }
+
+/* ---------- NFC Tap-to-Confirm ---------- */
+.nfc-card { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line-strong); background: rgba(0,0,0,.25); }
+.nfc-card.strong { border-color: rgba(43,255,177,.5); box-shadow: 0 0 22px rgba(43,255,177,.12); }
+.nfc-flag { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--green); margin-bottom: 10px; }
+.nfc-flag.warn { color: var(--amber); }
+.nfc-tl { list-style: none; margin: 0; padding: 0; position: relative; }
+.nfc-tl::before { content: ""; position: absolute; left: 13px; top: 8px; bottom: 8px; width: 2px; background: var(--line); }
+.nfc-ev { display: flex; gap: 12px; align-items: flex-start; padding: 6px 0; position: relative; }
+.nfc-ev > span { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 50%; background: #0a1226; border: 1px solid var(--line-strong); font-size: 14px; z-index: 1; }
+.nfc-ev.OPEN > span { border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,229,255,.4); }
+.nfc-ev.CONFIRM_OK > span { border-color: var(--green); box-shadow: 0 0 12px rgba(43,255,177,.4); }
+.nfc-ev.PROBLEM > span { border-color: var(--amber); box-shadow: 0 0 12px rgba(255,181,71,.4); }
+.nfc-ev b { font-size: 13px; display: block; }
+.nfc-ev small { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+.nfc-ev small b.good { display: inline; font-size: inherit; color: var(--green); }
+.nfc-ev q { display: block; font-size: 12.5px; color: var(--amber); margin-top: 3px; }
+.nfc-ev img { max-width: 160px; border-radius: 8px; margin-top: 6px; border: 1px solid var(--line-strong); }
+.nfc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.nfc-actions .mini-btn { text-decoration: none; }
+.nfc-note { font-size: 11px; color: var(--muted); margin-top: 8px; }

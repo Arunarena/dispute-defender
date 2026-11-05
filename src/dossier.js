@@ -114,6 +114,20 @@ export function buildDossier({ dispute: d, intel, photos, recommendation: rec })
     body(`Final carrier status: ${intel.tracking.status}`, { bold: true, color: intel.tracking.status === "DELIVERED" ? C.green : C.amber });
   }
 
+  // NFC Tap-to-Confirm tag sealed in the package.
+  const tag = intel?.packageTag;
+  if (tag?.taps?.length) {
+    ensure(60 + tag.taps.length * 18);
+    body("Package tag (NFC Tap-to-Confirm)", { bold: true });
+    body(`A signed NFC tag was written for this order and sealed inside the package at packing${tag.writtenAtPacking ? ` (${date(tag.writtenAtPacking)})` : ""}. Each entry below is a phone touching that tag.`, { size: 9, color: C.muted });
+    for (const x of tag.taps) {
+      const what = { OPEN: "Tag tapped by a phone", CONFIRM_OK: "Buyer confirmed the order arrived in good condition", PROBLEM: `Buyer reported a problem: "${x.note ?? ""}"` }[x.kind] ?? x.kind;
+      const extra = [x.device, x.place, x.location ? `GPS ${x.location.lat}, ${x.location.lon} (±${x.location.accuracy} m)` : null, x.hoursAfterDelivery != null ? `${x.hoursAfterDelivery} h after delivery scan` : null].filter(Boolean).join("  ·  ");
+      body(`${date(x.time)} ${new Date(x.time).toISOString().slice(11, 16)} UTC  ·  ${what}`, { bold: x.kind !== "OPEN" || x.hoursAfterDelivery > 0, size: 9.5 });
+      body(extra, { size: 8.5, color: C.muted });
+    }
+  }
+
   // ---- 4. address verification ----
   if (intel?.order) {
     section(4, "Address verification");

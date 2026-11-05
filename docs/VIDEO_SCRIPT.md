@@ -24,7 +24,9 @@ Narration is about 400 words, which runs about 2:45 at a calm pace.
 ### 0:55–1:20 · The verdict
 **Screen:** Verdict appears. Pause on the FIGHT stamp and gauge, then scroll slowly over the journey map, address check and buyer intel tiles. Click **✓ APPROVE · SUBMIT EVIDENCE**. Let the transmission animation finish.
 
-> "Verdict: fight, with high win odds. The carrier confirms delivery, the addresses match, and this buyer has made the same claim twice before. It drafts the evidence notes, and I approve. Nothing reaches PayPal without me. It goes out through the Disputes API with the tracking number and the delivery photo attached."
+**Screen:** Before approving, scroll to **PACKAGE TAG · NFC** and hover the tap 2.5 hours after delivery.
+
+> "Verdict: fight, with high win odds. The carrier confirms delivery, the addresses match, and this buyer has made the same claim twice before. And here's the clincher: we seal an NFC tag in every box. A phone tapped it two and a half hours after delivery. Someone had this package in their hands. It drafts the evidence notes, and I approve. Nothing reaches PayPal without me. It goes out through the Disputes API with the tracking number and the delivery photo attached."
 
 ### 1:20–1:55 · Agent vs. agent negotiation
 **Screen:** Click the **mug set** dispute ($64, one mug chipped). Click **Scan with AI vision** on the buyer's photo and let it finish. Click **🤝 NEGOTIATION ARENA**. Let it run to the deal.

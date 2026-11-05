@@ -2,7 +2,7 @@
 // Scripted stand-in for Claude, used only when no ANTHROPIC_API_KEY is set,
 // so the app can be clicked through without any keys. It calls the same
 // back-office lookups as the real agent and applies simple rules.
-import { findOrder, findTracking, findCustomer, getPolicies } from "./store.js";
+import { findOrder, findTracking, findCustomer, getPolicies, findTagsFor } from "./store.js";
 import { listPhotos, analyzePhoto } from "./photos.js";
 
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -40,6 +40,12 @@ export async function scriptedRecommendation(d, emit) {
     : null;
   await step(emit, "get_store_policies", "Reading store policies", {}, () => ({ policies: getPolicies() }));
 
+  // NFC Tap-to-Confirm tag sealed in the box, if the order had one.
+  const tag = d.transactionId ? findTagsFor(d.transactionId)[0] ?? null : null;
+  if (tag) await step(emit, "check_package_tag", "Checking the NFC package tag", { transaction_id: d.transactionId }, () => ({ tagId: tag.id, writtenAtPacking: tag.writtenAt, taps: tag.taps }));
+  const deliveredAt = tracking?.status === "DELIVERED" ? tracking.events?.at(-1)?.time : null;
+  const tapAfterDelivery = tag?.taps.find((x) => deliveredAt && new Date(x.time) >= new Date(deliveredAt));
+
   // Photo evidence (carrier proof-of-delivery, buyer damage photos, uploads).
   const photos = listPhotos(d.id);
   let photoEvidence = [];
@@ -52,6 +58,15 @@ export async function scriptedRecommendation(d, emit) {
   const sellerPhotos = photoEvidence.filter((p) => p.favors === "SELLER");
   const buyerPhotos = photoEvidence.filter((p) => p.favors === "BUYER");
   const withPhotos = (rec) => {
+    if (tapAfterDelivery && d.reason === "MERCHANDISE_OR_SERVICE_NOT_RECEIVED") {
+      const hrs = Math.round(((new Date(tapAfterDelivery.time) - new Date(deliveredAt)) / 3600000) * 10) / 10;
+      rec.reasoning.push(`The NFC tag sealed in the box was tapped by a phone (${tapAfterDelivery.device}${tapAfterDelivery.place ? `, ${tapAfterDelivery.place}` : ""}) ${hrs} hours after delivery. Someone had the package in hand.`);
+      rec.evidence.push({ evidence_type: "PROOF_OF_FULFILLMENT", title: "NFC package tap after delivery", detail: `Tag ${tag.id}, written at packing ${new Date(tag.writtenAt).toDateString()}, tapped ${new Date(tapAfterDelivery.time).toUTCString()} by ${tapAfterDelivery.device}` });
+      rec.win_likelihood = Math.min(97, rec.win_likelihood + 6);
+      if (rec.response_text) rec.response_text += ` In addition, the NFC tag sealed inside the package was tapped by a phone on ${new Date(tapAfterDelivery.time).toDateString()}, ${hrs} hours after the carrier's delivery scan, which shows the package was physically received.`;
+    }
+    const problem = tag?.taps.find((x) => x.kind === "PROBLEM");
+    if (problem) rec.risk_flags.push(`Buyer reported a problem when tapping the package: "${problem.note ?? "no details"}"`);
     for (const p of sellerPhotos) {
       rec.reasoning.push(`Photo evidence: ${p.caption} (${p.confidence}% confidence).`);
       rec.evidence.push({ evidence_type: "PROOF_OF_FULFILLMENT", title: p.caption, detail: p.findings.slice(0, 3).join("; ") });

@@ -32,7 +32,8 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 10. **🛰️ Risk Radar (prevention):** every new PayPal order is scored for fraud and dispute risk *before it ships*, with an explanation of each signal (address mismatch, freight forwarders, IP country, account age, unverified payer…). Each order gets a recommendation: ship, ship with signature, or hold and verify. Holding a fraudulent order counts as "fraud prevented".
 11. **📊 Insights:** an AI "profit leak" report over 90 days of dispute history, with charts. The numbers are computed in code and the AI only interprets them. It shows where money is lost (root cause, product, week) and the fixes worth the most per month.
 12. **🧠 Track Record (outcome learning):** every plan the agent sends is remembered until PayPal rules on it (`CUSTOMER.DISPUTE.RESOLVED` webhook, or **⚖️ Simulate PayPal ruling** in demo mode). Results from similar past cases then calibrate the win odds on new disputes, and Autopilot uses the calibrated odds. For example, "delivered" tracking with no photo or signature used to get 78% odds but won only 42% of the time, so a new case like that drops to 54% and waits for approval instead of being fought automatically. The Track Record screen shows the agent's accuracy, a calibration chart and the lessons it learned. All the numbers are computed in code.
-13. **🔌 Integrations hub:** one screen shows every outside API the app talks to, whether it's live or in demo mode, which key turns it on, and a log of every call. Most are off until you add a key. In demo mode the app logs the call it would have made. See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+13. **📲 NFC Tap-to-Confirm packages:** every box that ships gets a ~$0.20 NFC sticker holding a signed link to that order. When the buyer's phone touches the box (iPhone or Android, no app needed), the tap is logged with the time and device, and the buyer can confirm arrival or report a problem with a photo and GPS. Problems reach the seller *before* they become PayPal disputes. If a "never arrived" dispute comes in anyway, the agent finds the tap and cites it. In the demo, the headphones tag was tapped in Portland 2.5 hours after USPS marked it delivered. The tap goes into the evidence PDF too. Sellers write tags from Chrome on Android (Web NFC) or with any NFC writer app.
+14. **🔌 Integrations hub:** one screen shows every outside API the app talks to, whether it's live or in demo mode, which key turns it on, and a log of every call. Most are off until you add a key. In demo mode the app logs the call it would have made. See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
     - **PayPal Add Tracking API:** shipping an order from Risk Radar puts the tracking number on the PayPal transaction. The buyer sees it in PayPal, and Seller Protection asks for it on "not received" claims.
     - **PayPal refunds (Payments v2):** **💸 Cancel & refund** on a risky order refunds it before it can become a chargeback, which avoids the chargeback fee and a mark on your dispute rate.
     - **PayPal Transaction Search:** a new agent tool checks the buyer's real PayPal history with your store (payments, refunds, chargebacks).
@@ -41,13 +42,13 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
     - **Google Address Validation:** Risk Radar flags mail-drop addresses (USPS CMRA), undeliverable addresses and business addresses.
     - **Slack, Discord and Zapier / Make / n8n:** alerts for new disputes, cases needing approval, Autopilot actions, PayPal rulings, high-risk orders and deadlines. The automation webhook is signed with HMAC-SHA256.
     - **Deadline calendar:** an iCal feed of response deadlines with a reminder a day before, for Google Calendar, Outlook or Apple Calendar.
-14. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them.
+15. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them.
 
 ### Demo scenarios (included)
 
 | Dispute | What the agent finds | Recommendation |
 |---|---|---|
-| Headphones, "never arrived", $129 | USPS delivered to the address with a photo; buyer has 2 prior "not received" claims | **Fight**, ~85% win odds |
+| Headphones, "never arrived", $129 | USPS delivered to the address with a photo; the NFC tag in the box was tapped 2.5 hours after delivery; buyer has 2 prior "not received" claims | **Fight**, ~93% win odds |
 | Mug set, "one arrived chipped", $64 | 1 of 4 damaged, policy says refund that item's share, loyal customer | **Offer $16**, keep $48 |
 | Smartwatch, "unauthorized", $289.99 | Freight forwarder, billing ≠ shipping, 1-day-old account, foreign IP | **Accept**: it's fraud and can't be won |
 | Tote bags, "where is it?", $42.50 | Delayed by weather, now at the local post office | **Reply** with tracking, no refund |
@@ -91,6 +92,7 @@ Optional extras, each switched on by its own key (see [docs/INTEGRATIONS.md](doc
 | `OUTBOUND_WEBHOOK_URL`, `OUTBOUND_WEBHOOK_SECRET` | Every event as signed JSON, for Zapier, Make or n8n |
 | `PUBLIC_URL` | Your public address, used for links in alerts and the calendar (Render sets this for you) |
 | `DEADLINE_ALERT_HOURS` | When to send the deadline reminder (default 48 hours before) |
+| `NFC_TAG_SECRET` | Signs NFC tag links. Optional: one is generated and saved in `data/` if unset. Set it on Render so written tags survive redeploys |
 
 Turn on **Transaction search** under your sandbox app's features to let the agent read the buyer's PayPal history.
 
@@ -155,6 +157,9 @@ Browser (public/)                 Node/Express (src/server.js)
 | [src/address.js](src/address.js) | Google Address Validation for Risk Radar |
 | [src/notify.js](src/notify.js) | Slack, Discord and signed automation-webhook alerts |
 | [src/calendar.js](src/calendar.js) | iCal feed of dispute deadlines |
+| [src/nfc.js](src/nfc.js) | NFC Tap-to-Confirm: signed tag links, tap recording, evidence for the agent |
+| [public/tap.html](public/tap.html) | The page a buyer's phone opens when it taps the box |
+| [public/nfc.js](public/nfc.js) | Seller-side tag writing (Web NFC) and tap timeline |
 | [src/claude.js](src/claude.js) | Shared Claude client and structured-output helper |
 | [src/scripted.js](src/scripted.js) | Rules-based stand-in agent for keyless demo mode |
 | [src/demoData.js](src/demoData.js) | Sample disputes and store data |

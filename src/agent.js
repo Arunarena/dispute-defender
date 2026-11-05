@@ -4,7 +4,8 @@
 // is sent to PayPal.
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
-import { findOrder, findCustomer, getPolicies } from "./store.js";
+import { findOrder, findCustomer, findTracking, getPolicies } from "./store.js";
+import { tagEvidence } from "./nfc.js";
 import { trackShipment } from "./carriers.js";
 import { paypalConfigured, buyerTransactions } from "./paypal.js";
 import { timed } from "./integrations.js";
@@ -79,6 +80,7 @@ How to work:
    - Not as described + partial damage = a partial refund matching the store policy is usually cheaper than losing the full amount (only possible in INQUIRY stage).
    - Unauthorized + mismatched billing/shipping, freight forwarder, new account, foreign IP, no signature = seller will very likely lose; accept to avoid extra fees and time.
    - In CHARGEBACK stage you cannot make offers or just message; choose FIGHT or ACCEPT_CLAIM.
+   - NFC package tag (check_package_tag): a tap after delivery means a phone touched the sealed box, which strongly contradicts "never arrived". A buyer "confirmed OK" tap contradicts later damage claims. A problem reported at the tap shows the buyer raised it early, in good faith.
 5. Be honest about weak cases. Never invent evidence; only cite facts returned by tools.
 
 Write response_text as the seller would send it, in a calm, factual tone. Address PayPal for evidence notes and the buyer for messages and offers.`;
@@ -130,6 +132,18 @@ function buildTools(emit, captured, dispute) {
           }),
         ]
       : []),
+    betaZodTool({
+      name: "check_package_tag",
+      description:
+        "Check the NFC Tap-to-Confirm tag sealed inside this order's package: when it was written at packing, every time a phone tapped it (time, device, hours after delivery, GPS if shared), and whether the buyer confirmed arrival or reported a problem. Returns null if the order had no tag.",
+      inputSchema: z.object({ transaction_id: z.string() }),
+      run: traced("check_package_tag", "Checking the NFC package tag", async ({ transaction_id }) => {
+        const order = findOrder(transaction_id);
+        const tracking = order?.shipping ? findTracking(order.shipping.trackingNumber) : null;
+        const delivered = tracking?.status === "DELIVERED" ? tracking.events?.at(-1)?.time : null;
+        return tagEvidence(transaction_id, delivered) ?? { tag: null, note: "This order shipped without an NFC tag." };
+      }),
+    }),
     betaZodTool({
       name: "get_customer_history",
       description: "Get the buyer's history with this store: account age, orders, total spent, prior disputes, notes.",

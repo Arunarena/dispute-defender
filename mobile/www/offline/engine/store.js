@@ -3,7 +3,7 @@
 // The AI agent reads from here through its tools.
 import fs from "fs";
 import path from "path";
-import { demoOrders, demoTracking, demoCustomers, storePolicies } from "./demoData.js";
+import { demoOrders, demoTracking, demoCustomers, storePolicies, demoNfcTags } from "./demoData.js";
 
 const DATA_DIR = path.resolve("data");
 const LIVE_FILE = path.join(DATA_DIR, "live-orders.json");
@@ -41,6 +41,38 @@ export function cacheTracking(trackingNumber, tracking) {
 export function findCustomer(email) {
   const live = loadLive();
   return live.customers[email] ?? demoCustomers[email] ?? null;
+}
+
+// ---------- NFC package tags ----------
+// Saved tags override the demo ones with the same id (for example after a simulated tap).
+const TAGS_FILE = path.join(DATA_DIR, "nfc-tags.json");
+
+export function allTags() {
+  let saved = {};
+  try {
+    saved = JSON.parse(fs.readFileSync(TAGS_FILE, "utf8"));
+  } catch {
+    saved = {};
+  }
+  const byId = new Map(demoNfcTags.map((t) => [t.id, structuredClone(t)]));
+  for (const t of Object.values(saved)) byId.set(t.id, t);
+  return [...byId.values()];
+}
+
+export const findTag = (id) => allTags().find((t) => t.id === id) ?? null;
+export const findTagsFor = (transactionId) => allTags().filter((t) => t.transactionId === transactionId);
+
+export function saveTag(tag) {
+  let saved = {};
+  try {
+    saved = JSON.parse(fs.readFileSync(TAGS_FILE, "utf8"));
+  } catch {
+    saved = {};
+  }
+  saved[tag.id] = tag;
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(TAGS_FILE, JSON.stringify(saved, null, 2));
+  return tag;
 }
 
 export function getPolicies() {

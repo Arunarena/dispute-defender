@@ -391,3 +391,28 @@ export const storePolicies = `STORE POLICIES (Juniper & Co.)
 - Lost packages: if tracking does not show delivery within 14 days of shipping, we reship or refund in full.
 - Fraud: orders shipped to freight forwarders are high risk; we do not have signature confirmation for orders under $300.
 - Margin note: average product margin is ~45%; replacement mug cost to us is $6.`;
+
+// NFC package tags (Tap-to-Confirm). The seller sticks a tag inside the box at packing time.
+// When the buyer's phone touches the box, the tag opens a page that records the tap.
+// Headphones: the tag was tapped in Portland 2.5 hours after USPS marked it delivered,
+// yet the buyer says it never arrived. The tote is still in transit, so it hasn't been tapped.
+export const demoNfcTags = [
+  {
+    id: "tg-hp20481",
+    transactionId: "7XK45123AB9876543",
+    label: { buyerName: "Jordan Miles", items: ["Aurora ANC Wireless Headphones"], total: "129.00" },
+    createdAt: "2026-10-14T15:10:00.000Z",
+    writtenAt: "2026-10-14T15:12:00.000Z",
+    taps: [
+      { time: "2026-10-17T23:44:00.000Z", kind: "OPEN", device: "iPhone · Safari", place: "Portland, OR (network location)" },
+    ],
+  },
+  {
+    id: "tg-tt20544",
+    transactionId: "5HT77001GH1122334",
+    label: { buyerName: "Emma Schultz", items: ["Organic Cotton Tote Bag (2-pack)"], total: "42.50" },
+    createdAt: daysAgo(7),
+    writtenAt: daysAgo(7),
+    taps: [],
+  },
+];
