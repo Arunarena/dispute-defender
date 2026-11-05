@@ -671,7 +671,13 @@ window.addEventListener("beforeinstallprompt", (e) => {
   if (intg.built && current === "integrations") renderIntegrations();
 });
 $("#install").onclick = install;
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+// StackBlitz previews route every request through their own service worker, and ours would
+// replace it (the dashboard then gets no data). There, skip ours and remove it if it got in.
+const inStackBlitz = /webcontainer|staticblitz|stackblitz/i.test(location.hostname);
+if ("serviceWorker" in navigator) {
+  if (inStackBlitz) navigator.serviceWorker.getRegistrations().then((rs) => rs.filter((r) => r.active?.scriptURL.endsWith("/sw.js")).forEach((r) => r.unregister())).catch(() => {});
+  else navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
 
 // Open a screen from the URL, e.g. the app shortcuts: /?view=radar
 {
