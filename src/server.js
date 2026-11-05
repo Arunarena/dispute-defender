@@ -827,6 +827,20 @@ const STORE_NAME = "Juniper & Co.";
 const tagView = (tag, req) => ({ ...tag, url: tagUrl(tag.id, baseUrl(req)), localOnly: /localhost|127\.0\.0\.1/.test(baseUrl(req)) });
 
 app.get("/api/nfc/tags", (req, res) => res.json({ tags: listTags().map((t) => tagView(t, req)) }));
+
+// Add a tag to a dispute's order after the fact (orders that shipped before tags existed).
+app.post(
+  "/api/nfc/tags",
+  wrap(async (req, res) => {
+    const dispute = await loadDispute(String(req.body.disputeId ?? ""));
+    if (!dispute.transactionId) return res.status(400).json({ error: "This dispute has no transaction to tag." });
+    const order = findOrder(dispute.transactionId);
+    const items = dispute.items?.length ? dispute.items.map((i) => i.name) : (order?.items ?? []).map((i) => i.name);
+    const tag = createTag({ transactionId: dispute.transactionId, buyerName: dispute.buyerName, items: items.length ? items : ["Your order"], total: dispute.amount.value });
+    publish({ type: "tag_written", tagId: tag.id, transactionId: tag.transactionId });
+    res.json({ tag: tagView(tag, req) });
+  }),
+);
 app.get("/api/nfc/tags/:id", (req, res) => {
   const tag = findTag(req.params.id);
   if (!tag) return res.status(404).json({ error: "Tag not found" });
@@ -915,6 +929,8 @@ app.post(
       shipment,
     });
     const order = riskOrderFromPayPal(data, capture, { items: [{ name: item.name, qty: 1 }], total: item.price, shipment: { carrier, trackingNumber } });
+    // The shop "ships" at once, so the box gets its Tap-to-Confirm tag now.
+    if (capture?.id) order.tagId = createTag({ transactionId: capture.id, buyerName: order.buyerName, items: [item.name], total: item.price }).id;
     handleNewOrder(order, "PayPal checkout").catch(() => {});
     res.json({ status: data.status, captureId: capture?.id, trackingNumber });
   }),

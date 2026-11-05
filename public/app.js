@@ -238,7 +238,29 @@ function renderTag() {
   if (!el || !window.NFC) return;
   const { dispute: d, intel, packageTagUrl, packageTagLocal } = state.current;
   const tag = intel?.packageTag;
-  if (!tag) return (el.innerHTML = "");
+  if (!tag) {
+    // No tag yet (for example, the order shipped before tags existed): offer to make one.
+    if (!d.transactionId) return (el.innerHTML = "");
+    el.innerHTML = `<div class="section-title">&gt; PACKAGE TAG · NFC TAP-TO-CONFIRM</div>
+      <div class="nfc-card"><div class="nfc-note" style="margin:0 0 10px">This order has no NFC tag yet. Create one, write it to a sticker, and any phone that taps the box is logged as delivery proof.</div>
+      <button class="mini-btn" id="nfc-create">🏷️ CREATE NFC TAG FOR THIS ORDER</button></div>`;
+    $("#nfc-create").onclick = async () => {
+      $("#nfc-create").disabled = true;
+      try {
+        await api("/api/nfc/tags", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ disputeId: d.id }) });
+        const fresh = await api(`/api/disputes/${encodeURIComponent(d.id)}`);
+        if (state.current?.dispute?.id === d.id) {
+          state.current = { ...fresh, recommendation: state.current.recommendation ?? fresh.recommendation };
+          renderTag();
+        }
+        toast("🏷️ TAG CREATED", "Write it to a sticker, or simulate a buyer tap.", "good");
+      } catch (err) {
+        toast("COULDN'T CREATE TAG", err.message, "warn");
+        $("#nfc-create").disabled = false;
+      }
+    };
+    return;
+  }
   const afterDelivery = tag.taps.some((t) => t.hoursAfterDelivery != null && t.hoursAfterDelivery >= 0);
   const flag =
     d.reason === "MERCHANDISE_OR_SERVICE_NOT_RECEIVED" && afterDelivery ? `<div class="nfc-flag">⚡ A phone tapped the tag inside the box after delivery. That contradicts "never arrived".</div>`
