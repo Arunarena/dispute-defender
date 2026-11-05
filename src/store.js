@@ -30,6 +30,13 @@ export function findTracking(trackingNumber) {
   return live.tracking[trackingNumber] ?? demoTracking[trackingNumber] ?? null;
 }
 
+// Saves a live carrier lookup (Shippo), so the dossier and track record see the same facts as the agent.
+export function cacheTracking(trackingNumber, tracking) {
+  const live = loadLive();
+  live.tracking[trackingNumber] = tracking;
+  saveLive(live);
+}
+
 export function findCustomer(email) {
   const live = loadLive();
   return live.customers[email] ?? demoCustomers[email] ?? null;
@@ -41,11 +48,13 @@ export function getPolicies() {
 
 // Called after a real sandbox checkout in the demo shop. We record the order
 // and simulate a shipment so the agent has evidence to work with.
-export function recordLiveOrder({ captureId, orderId, payerEmail, payerName, address, item }) {
+// `shipment` can set a real carrier and tracking number.
+export function recordLiveOrder({ captureId, orderId, payerEmail, payerName, address, item, shipment }) {
   const live = loadLive();
   const now = Date.now();
   const iso = (msAgo) => new Date(now - msAgo).toISOString();
-  const trackingNumber = "9400" + String(now).slice(-18).padStart(18, "0");
+  const trackingNumber = shipment?.trackingNumber ?? "9400" + String(now).slice(-18).padStart(18, "0");
+  const carrier = shipment?.carrier ?? "USPS";
 
   live.orders[captureId] = {
     orderId,
@@ -54,7 +63,7 @@ export function recordLiveOrder({ captureId, orderId, payerEmail, payerName, add
     shippingAddress: address,
     billingAddress: address,
     items: [{ name: item.name, sku: item.sku, price: item.price }],
-    shipping: { carrier: "USPS", trackingNumber, shipped: iso(0) },
+    shipping: { carrier, trackingNumber, shipped: iso(0) },
     ipCountry: "US",
   };
   live.tracking[trackingNumber] = {
@@ -73,5 +82,5 @@ export function recordLiveOrder({ captureId, orderId, payerEmail, payerName, add
     notes: `Sandbox buyer ${payerName ?? ""}`.trim(),
   };
   saveLive(live);
-  return { trackingNumber };
+  return { trackingNumber, carrier };
 }

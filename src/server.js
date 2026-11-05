@@ -13,6 +13,10 @@ import { buildDossier } from "./dossier.js";
 import { listOrders, getOrder, addOrder, simulateOrder, scoreOrder, decideOrder, riskStats } from "./risk.js";
 import { buildReport } from "./insights.js";
 import { askCopilot } from "./copilot.js";
+import { integrationStatus, logCall, timed, CATALOG } from "./integrations.js";
+import { send as sendAlert, startNotifier } from "./notify.js";
+import { buildCalendar } from "./calendar.js";
+import { shippoTestMode } from "./carriers.js";
 import { calibrate, casePattern, notePrediction, pendingFor, pendingIds, outcomeFor, recordOutcome, outcomeFromPayPal, trackRecord } from "./outcomes.js";
 
 const app = express();
@@ -515,6 +519,10 @@ app.post(
     if (req.body.event_type === "CUSTOMER.DISPUTE.CREATED" && disputeId) {
       handleIncoming(disputeId, "PayPal webhook").catch((err) => publish({ type: "autopilot_error", disputeId, message: err.message }));
     }
+    // A buyer message, an accepted offer or a status change: check PayPal now instead of waiting for the next poll.
+    if (req.body.event_type === "CUSTOMER.DISPUTE.UPDATED" && live()) watchPayPal().catch(() => {});
+    // A payment was captured anywhere on this PayPal account: score it in Risk Radar before it ships.
+    if (req.body.event_type === "PAYMENT.CAPTURE.COMPLETED") handleCaptureWebhook(req.body.resource).catch((err) => console.error("Capture webhook:", err.message));
     // PayPal ruled: record the outcome so the agent learns from it.
     if (req.body.event_type === "CUSTOMER.DISPUTE.RESOLVED" && disputeId) {
       recordLiveRuling(disputeId).catch((err) => console.error(`Outcome for ${disputeId} failed:`, err.message));
@@ -535,14 +543,96 @@ app.post(
   }),
 );
 
+// Shipping puts the tracking number on the PayPal transaction (Add Tracking API).
+async function pushTracking(order) {
+  const call = "POST /v2/checkout/orders/{id}/track";
+  const carrier = order.shipment?.carrier ?? "USPS";
+  const trackingNumber = order.shipment?.trackingNumber ?? "9400" + String(Date.now()).slice(-18).padStart(18, "0");
+  order.shipment = { carrier, trackingNumber, signature: order.decision === "SHIP_WITH_SIGNATURE", pushedToPayPal: false };
+  if (live() && order.paypalOrderId && order.paypalCaptureId) {
+    try {
+      await timed("paypal_tracking", call, () => paypal.addTracking(order.paypalOrderId, { captureId: order.paypalCaptureId, trackingNumber, carrier }), () => `${carrier} ${trackingNumber} added to order ${order.paypalOrderId}`);
+      order.shipment.pushedToPayPal = true;
+      return { ok: true, simulated: false, call, detail: `Tracking ${carrier} ${trackingNumber} is now on the PayPal transaction. The buyer was notified.` };
+    } catch (err) {
+      return { ok: false, simulated: false, call, detail: err.message };
+    }
+  }
+  logCall("paypal_tracking", call, { simulated: true, detail: `${carrier} ${trackingNumber} for ${order.id} (demo order, no PayPal call)` });
+  return { ok: true, simulated: true, call, detail: `Demo order: with PayPal keys, ${carrier} ${trackingNumber} would be added to the PayPal transaction.` };
+}
+
+// Cancelling refunds the payment before it can turn into a chargeback (Payments API v2).
+async function refundOrder(order) {
+  const call = "POST /v2/payments/captures/{id}/refund";
+  const note = "Your order was cancelled before shipping and has been refunded in full.";
+  if (live() && order.paypalCaptureId) {
+    try {
+      const { data } = await timed("paypal_refunds", call, () => paypal.refundCapture(order.paypalCaptureId, { note }), ({ data }) => `refund ${data.id} ${data.status} for capture ${order.paypalCaptureId}`);
+      order.refund = { id: data.id, status: data.status, amount: order.total };
+      return { ok: true, simulated: false, call, detail: `Refunded $${order.total} through PayPal (refund ${data.id}, ${data.status}).` };
+    } catch (err) {
+      return { ok: false, simulated: false, call, detail: err.message };
+    }
+  }
+  order.refund = { id: null, status: "SIMULATED", amount: order.total };
+  logCall("paypal_refunds", call, { simulated: true, detail: `$${order.total} for ${order.id} (demo order, no PayPal call)` });
+  return { ok: true, simulated: true, call, detail: `Demo order: with PayPal keys, $${order.total} would be refunded to the buyer now.` };
+}
+
 app.post(
   "/api/orders/:id/decision",
   wrap(async (req, res) => {
+    const existing = getOrder(req.params.id);
+    // A held order can still be shipped or cancelled. Shipped and cancelled orders are final.
+    if (existing && ["SHIPPED", "CANCELLED"].includes(existing.status)) return res.status(409).json({ error: `Order is already ${existing.status.toLowerCase()}` });
     const order = decideOrder(req.params.id, req.body.decision);
-    publish({ type: "order_decision", order: { id: order.id, decision: order.decision, total: order.total } });
-    res.json({ order, stats: riskStats() });
+    const integration =
+      order.status === "SHIPPED" ? await pushTracking(order)
+      : order.status === "CANCELLED" ? await refundOrder(order)
+      : null;
+    publish({ type: "order_decision", order: { id: order.id, decision: order.decision, total: order.total }, integration });
+    res.json({ order, stats: riskStats(), integration });
   }),
 );
+
+const addressText = (a) => (a ? [a.address_line_1, a.address_line_2, a.admin_area_2, a.admin_area_1, a.postal_code, a.country_code].filter(Boolean).join(", ") : "Address on file");
+
+function riskOrderFromPayPal(data, capture, extra = {}) {
+  const unit = data.purchase_units?.[0] ?? {};
+  const payerName = [data.payer?.name?.given_name, data.payer?.name?.surname].filter(Boolean).join(" ");
+  const address = addressText(unit.shipping?.address);
+  const country = data.payer?.address?.country_code ?? unit.shipping?.address?.country_code ?? "US";
+  return addOrder({
+    buyerName: payerName || "PayPal buyer",
+    email: data.payer?.email_address ?? "",
+    items: (unit.items?.length ? unit.items : [{ name: unit.description ?? "Item", quantity: "1" }]).map((i) => ({ name: i.name, qty: Number(i.quantity ?? 1) })),
+    total: capture?.amount?.value ?? unit.amount?.value ?? "0.00",
+    shippingAddress: address,
+    billingAddress: address,
+    ipCountry: country,
+    billingCountry: country,
+    accountAgeDays: 365,
+    priorOrders: 0,
+    priorDisputes: 0,
+    payerVerified: true,
+    shippingSpeed: "Standard",
+    paypalOrderId: data.id,
+    paypalCaptureId: capture?.id,
+    ...extra,
+  });
+}
+
+// PAYMENT.CAPTURE.COMPLETED: any PayPal checkout (not just the demo shop) gets scored before it ships.
+async function handleCaptureWebhook(capture) {
+  if (!capture?.id || listOrders().some((o) => o.paypalCaptureId === capture.id)) return;
+  const orderId = capture.supplementary_data?.related_ids?.order_id;
+  const data = orderId
+    ? await timed("paypal_orders", "GET /v2/checkout/orders/{id}", () => paypal.getOrder(orderId), (d) => `order ${d.id} for capture ${capture.id}`)
+    : { id: null, purchase_units: [{ amount: capture.amount }] };
+  if (listOrders().some((o) => o.paypalCaptureId === capture.id)) return; // the shop recorded it meanwhile
+  await handleNewOrder(riskOrderFromPayPal(data, capture), "PayPal webhook");
+}
 
 async function handleNewOrder(order, via) {
   publish({ type: "order_new", via, order: { id: order.id, buyerName: order.buyerName, total: order.total, item: order.items[0]?.name } });
@@ -609,6 +699,49 @@ app.post(
   }),
 );
 
+// ---------- Integrations ----------
+const baseUrl = (req) => (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
+
+app.get("/api/integrations", (req, res) => res.json({ ...integrationStatus(), calendarUrl: `${baseUrl(req)}/api/calendar.ics`, webhookUrl: `${baseUrl(req)}/api/webhooks/paypal` }));
+
+// "Send test" button for Slack, Discord and the automation webhook.
+app.post(
+  "/api/integrations/:id/test",
+  wrap(async (req, res) => {
+    const item = CATALOG.find((i) => i.id === req.params.id && i.testable);
+    if (!item) return res.status(404).json({ error: "Nothing to test for that integration" });
+    if (!item.live()) return res.status(400).json({ error: `Set ${item.env.join(", ")} in .env first` });
+    const r = await sendAlert({ type: "test", time: new Date().toISOString() }, item.id);
+    res.status(r.sent ? 200 : 502).json(r.sent ? { ok: true, text: r.text } : { error: "The channel did not accept the message. See the call log." });
+  }),
+);
+
+// Response deadlines as a calendar feed.
+app.get(
+  "/api/calendar.ics",
+  wrap(async (req, res) => {
+    const disputes = await listAllDisputes();
+    logCall("calendar", "GET /api/calendar.ics", { detail: `served ${disputes.filter((d) => d.sellerResponseDue).length} deadlines to ${req.get("user-agent")?.split(" ")[0] ?? "a client"}` });
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", `${req.query.download ? "attachment" : "inline"}; filename="dispute-deadlines.ics"`);
+    res.send(buildCalendar(disputes, baseUrl(req)));
+  }),
+);
+
+// Deadline reminders: one alert per dispute when its response window gets short.
+const DEADLINE_HOURS = Number(process.env.DEADLINE_ALERT_HOURS ?? 48);
+const reminded = new Set();
+async function checkDeadlines() {
+  const disputes = await listAllDisputes();
+  for (const d of disputes) {
+    if (!d.sellerResponseDue || d.status !== "WAITING_FOR_SELLER_RESPONSE" || reminded.has(d.id)) continue;
+    const hoursLeft = Math.round((new Date(d.sellerResponseDue) - Date.now()) / 3600000);
+    if (hoursLeft > DEADLINE_HOURS || hoursLeft < 0) continue;
+    reminded.add(d.id);
+    publish({ type: "deadline", disputeId: d.id, hoursLeft, amount: d.amount, buyerName: d.buyerName, item: d.item });
+  }
+}
+
 // ---------- Demo shop: real sandbox checkout that feeds the order system ----------
 app.get("/api/shop/items", (req, res) => res.json({ items: Object.values(SHOP_ITEMS) }));
 
@@ -629,35 +762,19 @@ app.post(
     const item = SHOP_ITEMS[req.body.sku];
     const data = await paypal.captureOrder(req.params.id);
     const capture = data.purchase_units?.[0]?.payments?.captures?.[0];
-    const shipping = data.purchase_units?.[0]?.shipping?.address;
-    const address = shipping
-      ? [shipping.address_line_1, shipping.admin_area_2, shipping.admin_area_1, shipping.postal_code, shipping.country_code].filter(Boolean).join(", ")
-      : "Address on file";
-    const { trackingNumber } = recordLiveOrder({
+    const address = addressText(data.purchase_units?.[0]?.shipping?.address);
+    // A Shippo test key only knows its own test numbers, so use one that reports "delivered".
+    const shipment = shippoTestMode() ? { carrier: "SHIPPO", trackingNumber: "SHIPPO_DELIVERED" } : undefined;
+    const { trackingNumber, carrier } = recordLiveOrder({
       captureId: capture?.id,
       orderId: data.id,
       payerEmail: data.payer?.email_address ?? "buyer@example.com",
       payerName: [data.payer?.name?.given_name, data.payer?.name?.surname].filter(Boolean).join(" "),
       address,
       item,
+      shipment,
     });
-    const payerCountry = data.payer?.address?.country_code ?? shipping?.country_code ?? "US";
-    const order = addOrder({
-      buyerName: [data.payer?.name?.given_name, data.payer?.name?.surname].filter(Boolean).join(" ") || "PayPal buyer",
-      email: data.payer?.email_address ?? "",
-      items: [{ name: item.name, qty: 1 }],
-      total: item.price,
-      shippingAddress: address,
-      billingAddress: address,
-      ipCountry: payerCountry,
-      billingCountry: payerCountry,
-      accountAgeDays: 365,
-      priorOrders: 0,
-      priorDisputes: 0,
-      payerVerified: true,
-      shippingSpeed: "Standard",
-      paypalCaptureId: capture?.id,
-    });
+    const order = riskOrderFromPayPal(data, capture, { items: [{ name: item.name, qty: 1 }], total: item.price, shipment: { carrier, trackingNumber } });
     handleNewOrder(order, "PayPal checkout").catch(() => {});
     res.json({ status: data.status, captureId: capture?.id, trackingNumber });
   }),
@@ -672,7 +789,18 @@ const lastSeen = new Map(); // dispute id -> "status|message count|outcome"
 let watcherPrimed = false;
 const snapshot = (d) => `${d.status}|${d.messages?.length ?? 0}|${d.outcome?.code ?? ""}`;
 
+let watching = false;
 async function watchPayPal() {
+  if (watching) return; // a webhook can ask for a pass while one is running
+  watching = true;
+  try {
+    await watchOnce();
+  } finally {
+    watching = false;
+  }
+}
+
+async function watchOnce() {
   const listed = await paypal.listDisputes();
   const ids = new Set([...listed.map((d) => d.id), ...knownIds, ...pendingIds()].filter((id) => !id.startsWith("PP-D-SIM-")));
   for (const id of ids) {
@@ -721,5 +849,11 @@ app.listen(PORT, () => {
   console.log(`\nDispute Defender running at http://localhost:${PORT}`);
   console.log(`  PayPal: ${live() ? "sandbox (live API)" : "demo data (add PAYPAL_CLIENT_ID/SECRET to .env for sandbox)"}`);
   console.log(`  AI:     ${claudeConfigured() ? `Claude ${MODEL}` : "scripted demo (add ANTHROPIC_API_KEY to .env for Claude)"}\n`);
+  const extras = CATALOG.filter((i) => i.live() && ["paypal_webhooks", "shippo", "google_address", "slack", "discord", "outbound"].includes(i.id)).map((i) => i.name);
+  console.log(`  Extras: ${extras.length ? extras.join(", ") : "none yet (see the Integrations tab)"}\n`);
   startWatcher();
+  startNotifier();
+  const tickDeadlines = () => checkDeadlines().catch((err) => console.error("Deadline check:", err.message));
+  setTimeout(tickDeadlines, 5000);
+  setInterval(tickDeadlines, 10 * 60000);
 });

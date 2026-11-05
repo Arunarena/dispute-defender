@@ -2,6 +2,7 @@
 // Prevention beats cure: a held fraudulent order never becomes a dispute.
 import { z } from "zod";
 import { claudeConfigured, claudeJSON } from "./claude.js";
+import { checkAddress } from "./address.js";
 
 const hoursAgo = (h) => new Date(Date.now() - h * 3600000).toISOString();
 
@@ -66,6 +67,7 @@ export const RiskSchema = z.object({
 const SYSTEM = `You are a payments fraud analyst for a small online store that sells through PayPal.
 Score how likely this order is to turn into fraud or a dispute, and recommend an action before it ships:
 SHIP (normal), SHIP_WITH_SIGNATURE (moderate risk: require signature on delivery), HOLD_AND_VERIFY (high risk: contact buyer / verify before shipping).
+If addressCheck is present, it comes from Google Address Validation: mailDrop (USPS CMRA) and undeliverable addresses are strong fraud signals.
 Weigh signals like: billing vs shipping mismatch, freight forwarders and hotels, IP country vs billing country, brand-new accounts, unverified PayPal payers, rush shipping on high-value or multi-quantity electronics, prior disputes. Also credit good signals (long history, verified, matching addresses). Gift orders with different addresses but otherwise clean history are usually fine.`;
 
 // Keyless demo: transparent points-based scoring.
@@ -84,6 +86,11 @@ function scriptedRisk(o) {
   if (!o.payerVerified) add("Unverified PayPal payer", 10, "PayPal reports the payer as unverified");
   if (/overnight|express/i.test(o.shippingSpeed) && total > 150) add("Rush shipping, high value", 8, `${o.shippingSpeed} shipping on a $${total.toFixed(2)} order`);
   if (o.items.some((i) => i.qty > 1) && total > 200) add("Multiple high-value units", 8, "Several of the same expensive item");
+  const ac = o.addressCheck; // Google Address Validation, when it is switched on
+  if (ac?.mailDrop) add("Mail-drop address", 22, "USPS lists the shipping address as a commercial mail-receiving agency (CMRA)");
+  if (ac && ac.deliverable === false) add("Undeliverable address", 14, "USPS can't confirm delivery to this address");
+  else if (ac?.unconfirmedParts) add("Unconfirmed address parts", 6, "Google couldn't confirm every part of the address");
+  if (ac?.business && !ac.residential && !/forward|hotel/i.test(o.shippingAddress)) add("Business address", 5, "Ships to a business, not a home");
   if (o.priorDisputes > 0) add(`${o.priorDisputes} prior disputes`, 14, "This buyer has disputed orders before");
   if (o.priorOrders >= 2 && o.priorDisputes === 0) add("Loyal customer", -15, `${o.priorOrders} previous orders, no problems`);
   if (o.accountAgeDays > 365) add("Long-standing account", -8, `${Math.round(o.accountAgeDays / 365)}+ years on PayPal`);
@@ -100,12 +107,13 @@ function scriptedRisk(o) {
 }
 
 export async function scoreOrder(order) {
+  if (order.addressCheck === undefined) order.addressCheck = await checkAddress(order.shippingAddress).catch(() => null);
   if (!claudeConfigured()) {
     await new Promise((r) => setTimeout(r, 900));
     order.risk = scriptedRisk(order);
     return order.risk;
   }
-  const { risk, decision, status, ...facts } = order;
+  const { risk, decision, status, shipment, refund, ...facts } = order;
   const result = await claudeJSON({ system: SYSTEM, schema: RiskSchema, effort: "low", content: `Order to assess:\n${JSON.stringify(facts, null, 2)}` });
   order.risk = { ...result, engine: "claude" };
   return order.risk;

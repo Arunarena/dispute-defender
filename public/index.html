@@ -28,6 +28,7 @@
         <button class="tab" data-view="radar">🛰️ Risk Radar</button>
         <button class="tab" data-view="insights">📊 Insights</button>
         <button class="tab" data-view="track">🧠 Track Record</button>
+        <button class="tab" data-view="integrations">🔌 Integrations</button>
       </nav>
       <div class="modes" id="modes"></div>
       <button class="sim-btn" id="simulate" title="Simulates PayPal sending a CUSTOMER.DISPUTE.CREATED webhook">📡 Simulate dispute</button>
@@ -87,6 +88,9 @@
 
     <!-- Track Record: predictions vs. PayPal's rulings, and what the agent learned -->
     <div class="view hidden" id="view-track"></div>
+
+    <!-- Integrations: every outside API, live or demo, plus a call log -->
+    <div class="view hidden" id="view-integrations"></div>
 
     <!-- Copilot -->
     <button class="copilot-orb" id="copilot-orb" title="Ask Defender (Ctrl+K)"><span class="orb-core">🛡️</span><span class="orb-label">Ask Defender <kbd>Ctrl K</kbd></span></button>

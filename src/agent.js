@@ -4,7 +4,10 @@
 // is sent to PayPal.
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
-import { findOrder, findTracking, findCustomer, getPolicies } from "./store.js";
+import { findOrder, findCustomer, getPolicies } from "./store.js";
+import { trackShipment } from "./carriers.js";
+import { paypalConfigured, buyerTransactions } from "./paypal.js";
+import { timed } from "./integrations.js";
 import { scriptedRecommendation } from "./scripted.js";
 import { MODEL, claudeConfigured, getClient, FALLBACK_PARAMS } from "./claude.js";
 import { listPhotos, analyzePhoto } from "./photos.js";
@@ -69,7 +72,7 @@ Your job: investigate one PayPal dispute and recommend the response that leaves 
 How to work:
 1. Look up the order with lookup_order using the dispute's transaction ID.
 2. If inspect_photos lists photos, inspect them: a carrier delivery photo or a buyer damage photo often decides the case.
-3. Check the shipment with track_shipment, the buyer's history with get_customer_history, and the store policies with get_store_policies. Use what's relevant to the dispute reason.
+3. Check the shipment with track_shipment, the buyer's history with get_customer_history (and get_paypal_payment_history if it is available), and the store policies with get_store_policies. Use what's relevant to the dispute reason.
 4. Weigh the facts like a PayPal adjudicator would:
    - Item not received + carrier shows delivered to the shipping address = strong seller case (PROOF_OF_FULFILLMENT with tracking).
    - Item not received + still in transit and in INQUIRY stage = reassure the buyer with tracking (SEND_MESSAGE); don't refund yet.
@@ -103,12 +106,30 @@ function buildTools(emit, captured, dispute) {
     }),
     betaZodTool({
       name: "track_shipment",
-      description: "Get the carrier tracking history and delivery status for a tracking number.",
+      description: "Get the carrier tracking history and delivery status for a tracking number (live from the carrier when available).",
       inputSchema: z.object({ carrier: z.string(), tracking_number: z.string() }),
-      run: traced("track_shipment", "Checking carrier tracking", async ({ tracking_number }) =>
-        findTracking(tracking_number) ?? { error: "Carrier has no record of that tracking number." },
+      run: traced("track_shipment", "Checking carrier tracking", async ({ carrier, tracking_number }) =>
+        (await trackShipment(carrier, tracking_number)) ?? { error: "Carrier has no record of that tracking number." },
       ),
     }),
+    // Only offered with real PayPal keys: the buyer's actual payment history with this store.
+    ...(paypalConfigured()
+      ? [
+          betaZodTool({
+            name: "get_paypal_payment_history",
+            description:
+              "Search PayPal's own records (Transaction Search API) for this buyer's payments to the store over the last 31 days: payments, refunds/reversals and chargebacks. Use the customer email from lookup_order. Data can lag a few hours.",
+            inputSchema: z.object({ email: z.string() }),
+            run: traced("get_paypal_payment_history", "Checking PayPal payment history", async ({ email }) => {
+              try {
+                return await timed("paypal_transactions", "GET /v1/reporting/transactions", () => buyerTransactions(email), (r) => `${r.payments} payments, ${r.chargebacksOrAdjustments} chargebacks`);
+              } catch (err) {
+                return { error: `Transaction Search unavailable: ${err.message}` };
+              }
+            }),
+          }),
+        ]
+      : []),
     betaZodTool({
       name: "get_customer_history",
       description: "Get the buyer's history with this store: account age, orders, total spent, prior disputes, notes.",

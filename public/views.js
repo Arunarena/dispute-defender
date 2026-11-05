@@ -1,4 +1,4 @@
-// Tabs + the Risk Radar and Insights views.
+// Tabs + the Risk Radar, Insights, Track Record and Integrations views.
 const $ = (s) => document.querySelector(s);
 const DD = () => window.DD;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -18,11 +18,12 @@ const imgFor = (name = "") => {
 let current = "disputes";
 function showView(view) {
   current = view;
-  for (const v of ["disputes", "radar", "insights", "track"]) $(`#view-${v}`).classList.toggle("hidden", v !== view);
+  for (const v of ["disputes", "radar", "insights", "track", "integrations"]) $(`#view-${v}`).classList.toggle("hidden", v !== view);
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === view));
   if (view === "radar") openRadar();
   if (view === "insights") openInsights();
   if (view === "track") openTrack();
+  if (view === "integrations") openIntegrations();
   window.scrollTo({ top: 0 });
 }
 document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => showView(t.dataset.view)));
@@ -104,7 +105,7 @@ function drawStats() {
     <div class="stat" style="--accent:#2bffb1"><div class="top"><span class="label">FRAUD PREVENTED</span><span class="ico">🛡️</span></div><div class="value">${usd(s.prevented ?? 0)}</div></div>`;
 }
 
-const ACTION_LABEL = { SHIP: "SHIP", SHIP_WITH_SIGNATURE: "SHIP + SIGNATURE", HOLD_AND_VERIFY: "HOLD & VERIFY" };
+const ACTION_LABEL = { SHIP: "SHIP", SHIP_WITH_SIGNATURE: "SHIP + SIGNATURE", HOLD_AND_VERIFY: "HOLD & VERIFY", CANCEL: "CANCEL & REFUND" };
 const STATUS_LABEL = { AWAITING_SHIPMENT: "awaiting shipment", SHIPPED: "✓ shipped", ON_HOLD: "⏸ on hold", CANCELLED: "✗ cancelled" };
 
 function drawOrders() {
@@ -125,18 +126,30 @@ function drawDetail() {
   if (!o) { $("#rr-detail").innerHTML = ""; return; }
   if (!o.risk) { $("#rr-detail").innerHTML = `<div class="rr-detail"><h3>${esc(o.buyerName)}</h3><p class="muted">Not scanned yet. <button class="mini-btn" id="rr-one">⚡ SCAN THIS ORDER</button></p></div>`; $("#rr-one").onclick = () => scanOne(o.id); return; }
   const r = o.risk;
-  const decided = o.status !== "AWAITING_SHIPMENT";
+  // A held order can still be shipped or cancelled. Shipped and cancelled orders are final.
+  const final = ["SHIPPED", "CANCELLED"].includes(o.status);
+  const can = (a) => !final && !(a === "HOLD_AND_VERIFY" && o.status === "ON_HOLD");
+  const ac = o.addressCheck;
+  const addrLine = ac
+    ? `<div class="rr-addr">📍 Address check (Google): ${esc(ac.formatted ?? o.shippingAddress)} · ${[ac.deliverable === false ? "<b class=bad>undeliverable</b>" : ac.deliverable ? "deliverable" : null, ac.mailDrop ? "<b class=bad>mail-drop (CMRA)</b>" : null, ac.residential ? "residential" : null, ac.business ? "business" : null, ac.poBox ? "PO box" : null].filter(Boolean).join(" · ") || esc(ac.granularity ?? "checked")}</div>`
+    : "";
+  const after = o.status === "SHIPPED" && o.shipment
+    ? `📦 Shipped ${esc(o.shipment.carrier)} ${esc(o.shipment.trackingNumber)}${o.shipment.signature ? " (signature required)" : ""} · ${o.shipment.pushedToPayPal ? "<b class=good>tracking added to PayPal ✓</b>" : "tracking not on PayPal (demo order)"}`
+    : o.status === "CANCELLED" && o.refund
+      ? `💸 Cancelled · ${o.refund.status === "SIMULATED" ? "refund simulated (demo order)" : `<b class=good>refunded $${esc(o.refund.amount)} via PayPal (${esc(o.refund.status)})</b>`}`
+      : o.status === "ON_HOLD" ? "⏸ On hold. Verify the buyer, then ship or cancel & refund." : "";
   $("#rr-detail").innerHTML = `<div class="rr-detail">
     <div style="display:flex;gap:16px;align-items:center">
       <div class="score ${r.level}" style="min-width:90px"><b style="font-size:34px">${r.score}</b><span>${r.level} RISK</span></div>
       <div><h3>${esc(r.headline)}</h3><div class="muted" style="font-size:12px">${esc(o.buyerName)} · ${esc(o.email)} · engine: ${esc(r.engine)}</div></div>
     </div>
     <div class="section-title" style="margin-top:16px">&gt; WHAT DROVE THE SCORE <span class="muted">(red adds risk · green lowers it)</span></div>
+    ${addrLine}
     ${r.signals.map((sg, i) => `<div class="sig"><span class="sl">${esc(sg.label)}</span><div class="track"><div class="bar ${sg.impact >= 0 ? "up" : "down"}" style="width:${Math.min(50, (Math.abs(sg.impact) / 40) * 50)}%;animation-delay:${i * 0.08}s"></div></div><span class="sv">${sg.impact > 0 ? "+" : ""}${sg.impact}</span><span class="sd">${esc(sg.detail)}</span></div>`).join("")}
     <div class="rr-actions">
-      ${["SHIP", "SHIP_WITH_SIGNATURE", "HOLD_AND_VERIFY"].map((a) => `<button class="act-btn ${{ SHIP: "ship", SHIP_WITH_SIGNATURE: "sign", HOLD_AND_VERIFY: "hold" }[a]} ${r.action === a ? "rec" : ""}" data-a="${a}" ${decided ? "disabled" : ""}>${{ SHIP: "📦", SHIP_WITH_SIGNATURE: "✍️", HOLD_AND_VERIFY: "⏸" }[a]} ${ACTION_LABEL[a]}${r.action === a ? " · AI PICK" : ""}</button>`).join("")}
+      ${["SHIP", "SHIP_WITH_SIGNATURE", "HOLD_AND_VERIFY", "CANCEL"].map((a) => `<button class="act-btn ${{ SHIP: "ship", SHIP_WITH_SIGNATURE: "sign", HOLD_AND_VERIFY: "hold", CANCEL: "cancel" }[a]} ${r.action === a ? "rec" : ""}" data-a="${a}" ${can(a) ? "" : "disabled"} title="${{ SHIP: "Adds tracking to the PayPal transaction", SHIP_WITH_SIGNATURE: "Adds tracking to PayPal; require a signature with the carrier", HOLD_AND_VERIFY: "Hold until you've verified the buyer", CANCEL: "Refund the PayPal payment now, before it can become a chargeback" }[a]}">${{ SHIP: "📦", SHIP_WITH_SIGNATURE: "✍️", HOLD_AND_VERIFY: "⏸", CANCEL: "💸" }[a]} ${ACTION_LABEL[a]}${r.action === a ? " · AI PICK" : ""}</button>`).join("")}
     </div>
-    ${decided ? `<div class="muted" style="margin-top:10px;font-family:var(--mono);font-size:12px">Decision recorded: ${STATUS_LABEL[o.status]}</div>` : ""}
+    ${after ? `<div class="rr-after">${after}</div>` : ""}
   </div>`;
   document.querySelectorAll(".act-btn").forEach((b) => (b.onclick = () => decide(o.id, b.dataset.a)));
 }
@@ -181,7 +194,7 @@ async function scanAll() {
 }
 
 async function decide(id, decision) {
-  const { order, stats } = await DD().api(`/api/orders/${id}/decision`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision }) });
+  const { order, stats, integration } = await DD().api(`/api/orders/${id}/decision`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision }) });
   radar.orders = radar.orders.map((o) => (o.id === id ? order : o));
   radar.stats = stats;
   drawRadarAll();
@@ -189,7 +202,12 @@ async function decide(id, decision) {
     DD().toast("🛡️ FRAUD PREVENTED", `${order.buyerName}'s ${usd(order.total)} order is on hold. That's a dispute that will never happen.`, "good");
     const b = document.querySelector(".act-btn.hold")?.getBoundingClientRect();
     if (b) DD().burst(b.left + b.width / 2, b.top);
-  } else DD().toast("ORDER UPDATED", `${order.id}: ${STATUS_LABEL[order.status]}`, "");
+  } else if (!integration) DD().toast("ORDER UPDATED", `${order.id}: ${STATUS_LABEL[order.status]}`, "");
+  if (integration) {
+    const title = decision === "CANCEL" ? "💸 CANCELLED & REFUNDED" : "📦 SHIPPED · TRACKING → PAYPAL";
+    DD().toast(integration.ok ? title : "⚠ PAYPAL CALL FAILED", `${integration.call}: ${integration.detail}`, integration.ok ? (integration.simulated ? "" : "good") : "warn");
+  }
+  if (intg.built) loadIntegrations();
 }
 
 async function openRadar() {
@@ -503,4 +521,70 @@ window.addEventListener("dd-event", (e) => {
   if (!["outcome", "action"].includes(e.detail.type)) return;
   track.stale = true;
   if (current === "track") openTrack();
+});
+
+// ================= INTEGRATIONS =================
+const intg = { built: false, data: null, flash: new Set() };
+const GROUP_ICON = { PayPal: "🏦", "Evidence & fraud signals": "🔎", "Alerts & automation": "📣" };
+
+function buildIntegrationsShell() {
+  $("#view-integrations").innerHTML = `<div class="view-pad">
+    <div class="view-head"><div class="grow"><h2>🔌 INTEGRATIONS</h2><p>Every outside API Dispute Defender talks to. <b>LIVE</b> ones make real calls. <b>DEMO</b> ones simulate the call and log what would have been sent. Add the keys in <code>.env</code> to switch one on.</p></div></div>
+    <div class="ig-stats" id="ig-stats"></div>
+    <div class="ig-grid"><div id="ig-cards"></div><div class="panel ig-log-panel"><div class="panel-head"><h2><span class="dot live"></span> CALL LOG</h2></div><ul class="ig-log" id="ig-log"></ul></div></div>
+  </div>`;
+  intg.built = true;
+}
+
+function renderIntegrations() {
+  const { integrations, calls, calendarUrl, webhookUrl } = intg.data;
+  const live = integrations.filter((i) => i.live).length;
+  $("#ig-stats").innerHTML = `
+    <div class="stat" style="--accent:#2bffb1"><div class="top"><span class="label">LIVE</span><span class="ico">🟢</span></div><div class="value">${live}<span style="font-size:14px;color:var(--muted)"> / ${integrations.length}</span></div></div>
+    <div class="stat" style="--accent:#00e5ff"><div class="top"><span class="label">CALLS THIS SESSION</span><span class="ico">📡</span></div><div class="value">${calls.length}</div></div>
+    <div class="stat" style="--accent:#ff4d6d"><div class="top"><span class="label">FAILED</span><span class="ico">⚠</span></div><div class="value">${calls.filter((c) => !c.ok).length}</div></div>`;
+  const groups = [...new Set(integrations.map((i) => i.group))];
+  $("#ig-cards").innerHTML = groups.map((g) => `<div class="section-title">${GROUP_ICON[g] ?? ""} ${esc(g).toUpperCase()}</div><div class="ig-cards">${integrations.filter((i) => i.group === g).map((i) => `
+    <div class="ig-card ${i.live ? "on" : "off"}">
+      <div class="ig-top"><b>${esc(i.name)}</b><span class="ig-badge">${i.live ? "LIVE" : "DEMO"}</span></div>
+      <p>${esc(i.what)}</p>
+      ${i.missing.length ? `<div class="ig-env">Set ${i.missing.map((k) => `<code>${esc(k)}</code>`).join(" ")}</div>` : ""}
+      ${i.id === "calendar" ? `<div class="ig-env"><input readonly value="${esc(calendarUrl)}" onclick="this.select()" /> <a class="mini-btn" href="/api/calendar.ics?download=1">⬇ .ics</a></div>` : ""}
+      ${i.id === "paypal_webhooks" ? `<div class="ig-env">Webhook URL: <code>${esc(webhookUrl)}</code></div>` : ""}
+      <div class="ig-foot"><span class="muted">${i.calls} call${i.calls === 1 ? "" : "s"}</span>${i.testable && i.live ? `<button class="mini-btn" data-test="${i.id}">▶ SEND TEST</button>` : ""}</div>
+    </div>`).join("")}</div>`).join("");
+  document.querySelectorAll("[data-test]").forEach((b) => (b.onclick = () => testChannel(b)));
+  $("#ig-log").innerHTML = calls.length
+    ? calls.map((c) => `<li class="${c.ok ? (c.simulated ? "sim" : "ok") : "bad"} ${intg.flash.has(c.seq) ? "new" : ""}"><span class="t">${new Date(c.time).toLocaleTimeString()}</span> <b>${esc(integrations.find((i) => i.id === c.id)?.name ?? c.id)}</b> <span class="tag">${c.ok ? (c.simulated ? "DEMO" : "OK") : "FAIL"}${c.ms != null ? ` · ${c.ms}ms` : ""}</span><div class="a">${esc(c.action)}</div><div class="d">${esc(c.detail)}</div></li>`).join("")
+    : `<li class="muted">No outside calls yet. Ship or cancel an order in Risk Radar, investigate a dispute, or download the calendar.</li>`;
+}
+
+async function loadIntegrations() {
+  intg.data = await DD().api("/api/integrations");
+  renderIntegrations();
+}
+
+async function testChannel(btn) {
+  btn.disabled = true;
+  try {
+    await DD().api(`/api/integrations/${btn.dataset.test}/test`, { method: "POST" });
+    DD().toast("✅ TEST SENT", "Check the channel for the message.", "good");
+  } catch (err) {
+    DD().toast("⚠ TEST FAILED", err.message, "warn");
+  }
+  btn.disabled = false;
+}
+
+async function openIntegrations() {
+  if (!intg.built) buildIntegrationsShell();
+  await loadIntegrations();
+}
+
+window.addEventListener("dd-event", (e) => {
+  const ev = e.detail;
+  if (ev.type === "deadline") DD().toast(`⏰ DEADLINE · ${ev.hoursLeft}h LEFT`, `${ev.disputeId}: ${ev.buyerName}, ${usd(ev.amount?.value ?? 0)}. Respond before PayPal rules for the buyer.`, "warn");
+  if (ev.type !== "integration_call" || current !== "integrations") return;
+  intg.flash.add(ev.entry.seq);
+  setTimeout(() => intg.flash.delete(ev.entry.seq), 3000);
+  loadIntegrations();
 });

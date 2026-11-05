@@ -32,7 +32,16 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 10. **🛰️ Risk Radar (prevention):** every new PayPal order is scored for fraud and dispute risk *before it ships*, with an explanation of each signal (address mismatch, freight forwarders, IP country, account age, unverified payer…). Each order gets a recommendation: ship, ship with signature, or hold and verify. Holding a fraudulent order counts as "fraud prevented".
 11. **📊 Insights:** an AI "profit leak" report over 90 days of dispute history, with charts. The numbers are computed in code and the AI only interprets them. It shows where money is lost (root cause, product, week) and the fixes worth the most per month.
 12. **🧠 Track Record (outcome learning):** every plan the agent sends is remembered until PayPal rules on it (`CUSTOMER.DISPUTE.RESOLVED` webhook, or **⚖️ Simulate PayPal ruling** in demo mode). Results from similar past cases then calibrate the win odds on new disputes, and Autopilot uses the calibrated odds. For example, "delivered" tracking with no photo or signature used to get 78% odds but won only 42% of the time, so a new case like that drops to 54% and waits for approval instead of being fought automatically. The Track Record screen shows the agent's accuracy, a calibration chart and the lessons it learned. All the numbers are computed in code.
-13. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them.
+13. **🔌 Integrations hub:** one screen shows every outside API the app talks to, whether it's live or in demo mode, which key turns it on, and a log of every call. Most are off until you add a key. In demo mode the app logs the call it would have made. See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+    - **PayPal Add Tracking API:** shipping an order from Risk Radar puts the tracking number on the PayPal transaction. The buyer sees it in PayPal, and Seller Protection asks for it on "not received" claims.
+    - **PayPal refunds (Payments v2):** **💸 Cancel & refund** on a risky order refunds it before it can become a chargeback, which avoids the chargeback fee and a mark on your dispute rate.
+    - **PayPal Transaction Search:** a new agent tool checks the buyer's real PayPal history with your store (payments, refunds, chargebacks).
+    - **More PayPal webhooks:** `PAYMENT.CAPTURE.COMPLETED` sends *every* PayPal checkout to Risk Radar, not only demo-shop orders. `CUSTOMER.DISPUTE.UPDATED` refreshes a case at once.
+    - **Shippo:** live carrier tracking (USPS, UPS, FedEx, DHL and more) for the agent and the evidence dossier.
+    - **Google Address Validation:** Risk Radar flags mail-drop addresses (USPS CMRA), undeliverable addresses and business addresses.
+    - **Slack, Discord and Zapier / Make / n8n:** alerts for new disputes, cases needing approval, Autopilot actions, PayPal rulings, high-risk orders and deadlines. The automation webhook is signed with HMAC-SHA256.
+    - **Deadline calendar:** an iCal feed of response deadlines with a reminder a day before, for Google Calendar, Outlook or Apple Calendar.
+14. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them.
 
 ### Demo scenarios (included)
 
@@ -70,7 +79,20 @@ Fill in `.env`:
 |---|---|---|
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | [developer.paypal.com](https://developer.paypal.com) → Apps & Credentials → **Sandbox** → Create App | Live sandbox disputes plus demo-shop checkout |
 | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) | Claude (`claude-opus-5-5`) for the agent, vision and negotiation |
-| `PAYPAL_WEBHOOK_ID` (optional) | Your sandbox app → **Webhooks** → add `https://<host>/api/webhooks/paypal` for `CUSTOMER.DISPUTE.CREATED` and `CUSTOMER.DISPUTE.RESOLVED` | Real-time Autopilot and outcome learning. Signatures are checked with PayPal's verify-webhook-signature API |
+| `PAYPAL_WEBHOOK_ID` (optional) | Your sandbox app → **Webhooks** → add `https://<host>/api/webhooks/paypal` for `CUSTOMER.DISPUTE.CREATED`, `CUSTOMER.DISPUTE.UPDATED`, `CUSTOMER.DISPUTE.RESOLVED` and `PAYMENT.CAPTURE.COMPLETED` | Real-time Autopilot, outcome learning, and Risk Radar for every checkout. Signatures are checked with PayPal's verify-webhook-signature API |
+
+Optional extras, each switched on by its own key (see [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for setup):
+
+| Variable | What it turns on |
+|---|---|
+| `SHIPPO_API_KEY` | Live carrier tracking. A `shippo_test_` key works with Shippo's `SHIPPO_DELIVERED` test number, which demo-shop orders then use |
+| `GOOGLE_MAPS_API_KEY` | Address checks in Risk Radar (enable the Address Validation API on the key) |
+| `SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL` | Alerts in a Slack or Discord channel |
+| `OUTBOUND_WEBHOOK_URL`, `OUTBOUND_WEBHOOK_SECRET` | Every event as signed JSON, for Zapier, Make or n8n |
+| `PUBLIC_URL` | Your public address, used for links in alerts and the calendar (Render sets this for you) |
+| `DEADLINE_ALERT_HOURS` | When to send the deadline reminder (default 48 hours before) |
+
+Turn on **Transaction search** under your sandbox app's features to let the agent read the buyer's PayPal history.
 
 Restart with `npm start`. Both badges in the header should now show live mode.
 
@@ -128,6 +150,11 @@ Browser (public/)                 Node/Express (src/server.js)
 | [src/photos.js](src/photos.js) | Photo evidence storage and Claude vision analysis |
 | [src/negotiate.js](src/negotiate.js) | Agent-vs-agent negotiation arena |
 | [src/autopilot.js](src/autopilot.js) | Autopilot rules and decision logic |
+| [src/integrations.js](src/integrations.js) | Integration catalog, live/demo status and the call log |
+| [src/carriers.js](src/carriers.js) | Shippo live carrier tracking, with the store's records as fallback |
+| [src/address.js](src/address.js) | Google Address Validation for Risk Radar |
+| [src/notify.js](src/notify.js) | Slack, Discord and signed automation-webhook alerts |
+| [src/calendar.js](src/calendar.js) | iCal feed of dispute deadlines |
 | [src/claude.js](src/claude.js) | Shared Claude client and structured-output helper |
 | [src/scripted.js](src/scripted.js) | Rules-based stand-in agent for keyless demo mode |
 | [src/demoData.js](src/demoData.js) | Sample disputes and store data |
@@ -148,8 +175,11 @@ Browser (public/)                 Node/Express (src/server.js)
 ### PayPal technologies used
 
 - **Disputes API v1:** list disputes, show details, provide evidence (multipart, with `tracking_info` and photo files), make an offer, accept a claim, send a message.
-- **Webhooks:** `CUSTOMER.DISPUTE.CREATED` triggers Autopilot and `CUSTOMER.DISPUTE.RESOLVED` records the ruling for the Track Record; signatures are checked with `/v1/notifications/verify-webhook-signature`.
-- **Orders API v2:** create and capture orders in the demo shop.
+- **Webhooks:** `CUSTOMER.DISPUTE.CREATED` triggers Autopilot, `CUSTOMER.DISPUTE.UPDATED` refreshes the case, `CUSTOMER.DISPUTE.RESOLVED` records the ruling for the Track Record, and `PAYMENT.CAPTURE.COMPLETED` sends each checkout to Risk Radar. Signatures are checked with `/v1/notifications/verify-webhook-signature`.
+- **Add Tracking API:** `POST /v2/checkout/orders/{id}/track` when an order ships from Risk Radar.
+- **Payments API v2:** `POST /v2/payments/captures/{id}/refund` for **Cancel & refund** on risky orders.
+- **Transaction Search API:** `GET /v1/reporting/transactions`, used by the agent for the buyer's PayPal history.
+- **Orders API v2:** create, capture and read orders (demo shop, and orders that arrive by webhook).
 - **PayPal JavaScript SDK:** checkout buttons in the demo shop.
 - **OAuth 2.0 client credentials:** sandbox authentication.
 
@@ -157,7 +187,7 @@ Browser (public/)                 Node/Express (src/server.js)
 
 ## Notes and limits
 
-- Carrier tracking in the demo shop is simulated. A production version would use the carrier APIs or PayPal's tracking API.
+- Carrier tracking is simulated unless `SHIPPO_API_KEY` is set. With a Shippo key, the agent's tracking checks are live.
 - Demo-mode actions are simulated and reset when the server restarts.
 - Some dispute actions are only allowed at certain stages. For example, offers and messages only work in the **inquiry** stage. The agent is told this, and PayPal returns a clear error if an action isn't allowed.
 

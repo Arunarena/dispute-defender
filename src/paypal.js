@@ -1,4 +1,4 @@
-// PayPal REST client (sandbox): OAuth, Disputes API v1, Orders API v2.
+// PayPal REST client (sandbox): OAuth, Disputes API v1, Orders API v2, Add Tracking, Payments v2 refunds, Transaction Search, webhook verification.
 const BASE = process.env.PAYPAL_API_BASE || "https://api-m.sandbox.paypal.com";
 
 export const paypalConfigured = () =>
@@ -190,6 +190,67 @@ export async function captureOrder(orderId) {
     json: {},
   });
   return data;
+}
+
+export async function getOrder(orderId) {
+  const { data } = await call("GET", `/v2/checkout/orders/${encodeURIComponent(orderId)}`);
+  return data;
+}
+
+// ---------- Add Tracking API ----------
+
+// PayPal's carrier enum covers the big ones; anything else goes in as OTHER with a name.
+const PAYPAL_CARRIERS = new Set(["USPS", "UPS", "FEDEX", "DHL", "DHL_API", "ONTRAC", "LASERSHIP", "CANADA_POST", "ROYAL_MAIL", "AUSTRALIA_POST"]);
+
+// Puts a shipment's tracking number on the PayPal transaction. The buyer sees it in PayPal,
+// and valid tracking is what Seller Protection asks for on "item not received" claims.
+export function addTracking(orderId, { captureId, trackingNumber, carrier = "USPS", notifyPayer = true }) {
+  const c = String(carrier).toUpperCase();
+  const json = { capture_id: captureId, tracking_number: trackingNumber, notify_payer: notifyPayer };
+  if (PAYPAL_CARRIERS.has(c)) json.carrier = c;
+  else Object.assign(json, { carrier: "OTHER", carrier_name_other: carrier });
+  return call("POST", `/v2/checkout/orders/${encodeURIComponent(orderId)}/track`, { json });
+}
+
+// ---------- Payments API v2: refunds ----------
+
+// Refunds a captured payment. With no amount, PayPal refunds the full capture.
+export function refundCapture(captureId, { amount, currency = "USD", note } = {}) {
+  const json = {};
+  if (amount) json.amount = { value: amount, currency_code: currency };
+  if (note) json.note_to_payer = note.slice(0, 255);
+  return call("POST", `/v2/payments/captures/${encodeURIComponent(captureId)}/refund`, { json });
+}
+
+// ---------- Transaction Search API ----------
+
+// The buyer's payments with this store over the last `days` (PayPal allows at most 31 per query).
+// Needs "Transaction search" turned on for the app, and new payments can take a few hours to appear.
+export async function buyerTransactions(email, days = 31) {
+  const end = new Date();
+  const start = new Date(end - Math.min(days, 31) * 86400000);
+  const q = new URLSearchParams({ start_date: start.toISOString().replace(/\.\d+Z$/, "Z"), end_date: end.toISOString().replace(/\.\d+Z$/, "Z"), fields: "transaction_info,payer_info", page_size: "500" });
+  const { data } = await call("GET", `/v1/reporting/transactions?${q}`);
+  const mine = (data.transaction_details ?? []).filter((t) => t.payer_info?.email_address?.toLowerCase() === String(email).toLowerCase());
+  const kind = (code = "") =>
+    code.startsWith("T11") ? "REVERSAL_OR_REFUND" : code.startsWith("T12") ? "ADJUSTMENT_OR_CHARGEBACK" : code.startsWith("T00") ? "PAYMENT" : "OTHER";
+  const list = mine.map((t) => ({
+    id: t.transaction_info?.transaction_id,
+    date: t.transaction_info?.transaction_initiation_date,
+    type: kind(t.transaction_info?.transaction_event_code),
+    code: t.transaction_info?.transaction_event_code,
+    amount: t.transaction_info?.transaction_amount?.value,
+    status: t.transaction_info?.transaction_status,
+  }));
+  const count = (k) => list.filter((t) => t.type === k).length;
+  return {
+    window: `last ${Math.min(days, 31)} days`,
+    payments: count("PAYMENT"),
+    refundsOrReversals: count("REVERSAL_OR_REFUND"),
+    chargebacksOrAdjustments: count("ADJUSTMENT_OR_CHARGEBACK"),
+    totalPaid: list.filter((t) => t.type === "PAYMENT").reduce((s, t) => s + Math.abs(Number(t.amount || 0)), 0).toFixed(2),
+    recent: list.slice(0, 10),
+  };
 }
 
 // ---------- Webhooks ----------

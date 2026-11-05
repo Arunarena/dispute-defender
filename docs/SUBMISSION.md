@@ -23,12 +23,16 @@ Dispute Defender is an AI dispute analyst for PayPal sellers:
 - **Prevents disputes before they happen.** Risk Radar scores each new PayPal order for fraud and dispute risk before it ships and recommends ship, require a signature, or hold.
 - **Learns from PayPal's rulings.** Every plan's outcome is recorded. Results from similar past cases calibrate the win odds on new disputes, so the agent stops being overconfident where it has been wrong before, and Autopilot holds those cases for approval. A Track Record screen shows its accuracy and what it learned.
 - **Finds the profit leaks.** An AI report over 90 days of disputes shows where money is lost and which fixes are worth the most per month.
+- **Connects to the tools sellers already use.** An Integrations hub shows each outside API, live or demo, with a call log. Shipping an order puts its tracking on the PayPal transaction (Add Tracking API). A risky order can be refunded before it becomes a chargeback (Payments API). The agent reads the buyer's real PayPal history (Transaction Search). Live carrier tracking comes from Shippo, address checks from Google, alerts go to Slack, Discord or Zapier, and deadlines go to the seller's calendar.
 - **Talks.** Defender Copilot answers by voice ("brief me", "fight the headphones dispute") and drives the app hands-free.
 - **Human in control.** The agent's tools are read-only. Money moves only after approval or under an explicit rule.
 
 ## How PayPal is used
 - **Disputes API v1:** list and read disputes; `provide-evidence` (multipart, with tracking info and photo files), `make-offer`, `accept-claim`, `send-message`.
-- **Webhooks:** `CUSTOMER.DISPUTE.CREATED` starts Autopilot. `CUSTOMER.DISPUTE.RESOLVED` feeds the ruling back into the Track Record. Signatures are checked with `verify-webhook-signature`.
+- **Webhooks:** `CUSTOMER.DISPUTE.CREATED` starts Autopilot. `CUSTOMER.DISPUTE.UPDATED` refreshes the case. `CUSTOMER.DISPUTE.RESOLVED` feeds the ruling back into the Track Record. `PAYMENT.CAPTURE.COMPLETED` sends every checkout to Risk Radar. Signatures are checked with `verify-webhook-signature`.
+- **Add Tracking API:** shipping from Risk Radar puts the tracking number on the PayPal transaction.
+- **Payments API v2:** cancel & refund a risky order before it becomes a chargeback.
+- **Transaction Search API:** the agent checks the buyer's real PayPal history with the store.
 - **Orders API v2 + JavaScript SDK:** the demo shop creates real sandbox purchases to dispute.
 - **OAuth 2.0** client credentials, all in the PayPal sandbox.
 

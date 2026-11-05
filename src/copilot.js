@@ -22,7 +22,7 @@ function buildTools(ctx, actions) {
     betaZodTool({ name: "open_dispute", description: "Show a dispute on screen.", inputSchema: z.object({ dispute_id: z.string() }), run: async ({ dispute_id }) => act("open_dispute", { id: dispute_id }) }),
     betaZodTool({ name: "run_investigation", description: "Open a dispute and start the AI investigation on screen. The seller reviews and approves the result.", inputSchema: z.object({ dispute_id: z.string() }), run: async ({ dispute_id }) => act("analyze", { id: dispute_id }) }),
     betaZodTool({ name: "open_negotiation", description: "Open the negotiation arena for an inquiry-stage dispute.", inputSchema: z.object({ dispute_id: z.string() }), run: async ({ dispute_id }) => act("negotiate", { id: dispute_id }) }),
-    betaZodTool({ name: "show_view", description: "Switch the main screen: disputes, radar (Risk Radar), insights, or track (Track Record: prediction accuracy and what the agent learned from past PayPal rulings).", inputSchema: z.object({ view: z.enum(["disputes", "radar", "insights", "track"]) }), run: async ({ view }) => act("view", { view }) }),
+    betaZodTool({ name: "show_view", description: "Switch the main screen: disputes, radar (Risk Radar), insights, track (Track Record: prediction accuracy and what the agent learned from past PayPal rulings), or integrations (which outside APIs are live: PayPal tracking/refunds/transaction search, Shippo, Google address check, Slack/Discord/Zapier alerts, deadline calendar).", inputSchema: z.object({ view: z.enum(["disputes", "radar", "insights", "track", "integrations"]) }), run: async ({ view }) => act("view", { view }) }),
     betaZodTool({ name: "set_autopilot", description: "Turn Autopilot on or off.", inputSchema: z.object({ enabled: z.boolean() }), run: async ({ enabled }) => act("autopilot", { enabled }) }),
     betaZodTool({ name: "simulate_dispute", description: "Simulate a new dispute arriving from PayPal (demo).", inputSchema: z.object({}), run: async () => act("simulate") }),
   ];
@@ -73,6 +73,7 @@ async function scripted(text, ctx, actions) {
     return on ? "Autopilot is on. New disputes will be handled within your rules." : "Autopilot is off. Every dispute will wait for you.";
   }
   if (/simulat|new dispute|incoming/.test(t)) { actions.push({ type: "simulate" }); return "Simulating a new dispute from PayPal now."; }
+  if (/integration|connect|slack|discord|zapier|calendar|shippo|api key/.test(t)) { actions.push({ type: "view", view: "integrations" }); return "Opening Integrations. It shows which outside services are live, what each one does, and every call made this session."; }
   if (/radar|order|fraud check|ship/.test(t) && !/dispute/.test(t)) {
     actions.push({ type: "view", view: "radar" });
     const risky = ctx.orders().filter((o) => o.risk?.level === "HIGH");
