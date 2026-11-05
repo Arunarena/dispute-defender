@@ -47,5 +47,5 @@ Dispute Defender is an AI dispute analyst for PayPal sellers:
 - A rules-based stand-in agent lets the app run without an API key for quick evaluation. The app's header shows which engine is active.
 
 ## Try it
-- Hosted demo: `<your Render URL>`
+- Hosted demo (runs in your browser, no install): https://stackblitz.com/github/Arunarena/dispute-defender
 - Code: https://github.com/Arunarena/dispute-defender. Runs with `npm install && npm start` and no keys needed (demo mode).
