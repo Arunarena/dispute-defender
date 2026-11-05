@@ -18,10 +18,11 @@ const imgFor = (name = "") => {
 let current = "disputes";
 function showView(view) {
   current = view;
-  for (const v of ["disputes", "radar", "insights"]) $(`#view-${v}`).classList.toggle("hidden", v !== view);
+  for (const v of ["disputes", "radar", "insights", "track"]) $(`#view-${v}`).classList.toggle("hidden", v !== view);
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === view));
   if (view === "radar") openRadar();
   if (view === "insights") openInsights();
+  if (view === "track") openTrack();
   window.scrollTo({ top: 0 });
 }
 document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => showView(t.dataset.view)));
@@ -337,3 +338,169 @@ function lineChart(el, pts) {
   };
   el.querySelector("#hit").onmouseleave = () => { xh.classList.add("hidden"); xd.classList.add("hidden"); hideTip(); };
 }
+
+// ================= TRACK RECORD =================
+// Predictions vs. PayPal's rulings, and what the agent learned from them.
+const track = { loading: false, stale: true };
+const C_RAW = "#d95926"; // agent alone (categorical slot 2, validated on the dark surface)
+const C_CAL = "#3987e5"; // with track record (categorical slot 1)
+const C_ACTUAL = "#e6f1ff"; // what really happened (ink)
+const VERDICT_LABEL = { FIGHT: "Fight", OFFER_PARTIAL_REFUND: "Partial refund", ACCEPT_CLAIM: "Accept", SEND_MESSAGE: "Reply" };
+const OUTCOME_COLOR = { WON: "var(--green)", SETTLED: "var(--violet)", LOST: "var(--red)" };
+const LESSON_ICON = { OVERCONFIDENT: "📉", UNDERCONFIDENT: "📈", STRATEGY: "♟️", CALIBRATED: "🎯" };
+
+async function openTrack() {
+  if (track.loading || !track.stale) return;
+  track.loading = true;
+  const el = $("#view-track");
+  if (!el.innerHTML) el.innerHTML = `<div class="view-pad"><div class="view-head"><div class="grow"><h2>🧠 TRACK RECORD</h2><p>How often the agent was right, and what it learned.</p></div></div><div class="panel in-card"><div class="thinking"><div>▶ loading resolved cases…</div></div></div></div>`;
+  try {
+    renderTrack(await DD().api("/api/track-record"));
+    track.stale = false;
+  } catch (err) {
+    el.innerHTML = `<div class="view-pad"><div class="error">${esc(err.message)}</div></div>`;
+  }
+  track.loading = false;
+}
+
+function renderTrack(t) {
+  const ago = (iso) => { const d = Math.round((Date.now() - new Date(iso)) / 86400000); return d <= 0 ? "today" : `${d}d ago`; };
+  $("#view-track").innerHTML = `<div class="view-pad">
+    <div class="view-head"><div class="grow"><h2>🧠 TRACK RECORD <span class="sample-tag">SAMPLE HISTORY + LIVE</span></h2>
+      <p>Every plan the agent recommends is checked against PayPal's final ruling. Similar past cases then calibrate the win odds for new disputes, and Autopilot uses the calibrated odds. Numbers are computed in code.</p></div></div>
+    <div class="in-tiles">
+      <div class="stat" style="--accent:#00e5ff"><div class="top"><span class="label">RESOLVED CASES</span><span class="ico">⚖️</span></div><div class="value">${t.resolved}</div><div class="tile-sub">${t.newSinceStart ? `+${t.newSinceStart} new this session` : "past disputes the agent handled"}</div></div>
+      <div class="stat" style="--accent:#2bffb1"><div class="top"><span class="label">PLANS THAT WORKED</span><span class="ico">✅</span></div><div class="value">${t.planSuccess}%</div><div class="tile-sub">won, settled or closed as planned</div></div>
+      <div class="stat" style="--accent:#ffb547"><div class="top"><span class="label">FIGHT WIN RATE</span><span class="ico">🥊</span></div><div class="value">${t.fightWinRate}%</div><div class="tile-sub">${t.fought} cases fought</div></div>
+      <div class="stat" style="--accent:#9b7bff"><div class="top"><span class="label">PREDICTION ERROR</span><span class="ico">🎯</span></div><div class="value">−${Math.max(0, t.brier.improvement)}%</div><div class="tile-sub">Brier ${t.brier.raw} → ${t.brier.calibrated} with learning</div></div>
+    </div>
+    <div class="in-grid">
+      <div>
+        <div class="panel in-card">
+          <h3>🧠 WHAT THE AGENT LEARNED</h3>
+          <div class="sub">Case types with at least 4 fought cases. These lessons change the odds on new disputes.</div>
+          ${t.lessons.map((l, i) => `<div class="lesson ${l.kind.toLowerCase()}" style="animation-delay:${0.1 + i * 0.1}s"><span class="li">${LESSON_ICON[l.kind]}</span><div><div class="lk">${l.kind}</div>${esc(l.text)}</div></div>`).join("") || `<p class="muted">Not enough resolved cases yet.</p>`}
+        </div>
+        <div class="panel in-card" style="margin-top:20px">
+          <h3>⏳ AWAITING PAYPAL'S RULING</h3>
+          <div class="sub">Responses already sent. Each ruling is added to the record when it arrives.</div>
+          ${t.pending.length ? t.pending.map((p) => `<div class="tr-row">
+              <div class="grow"><b>${esc(p.item ?? p.disputeId)}</b> <span class="muted">· ${esc(p.disputeId)}</span><br/><span class="muted">${esc(VERDICT_LABEL[p.verdict] ?? p.verdict)} · predicted ${p.odds}% · $${Number(p.amount).toFixed(2)}</span></div>
+              ${p.simulated ? `<button class="mini-btn tr-rule" data-id="${esc(p.disputeId)}">⚖️ SIMULATE RULING</button>` : `<span class="muted" style="font-size:11px">via webhook</span>`}
+            </div>`).join("") : `<p class="muted">Nothing waiting. Approve a plan on the Disputes tab and it shows up here.</p>`}
+        </div>
+        <div class="panel in-card" style="margin-top:20px">
+          <h3>📜 RECENT RULINGS</h3>
+          ${t.recent.map((x) => `<div class="tr-row">
+              <span class="tr-out" style="--oc:${OUTCOME_COLOR[x.outcome]}">${x.outcome}</span>
+              <div class="grow">${esc(x.label)}<br/><span class="muted">${esc(VERDICT_LABEL[x.verdict] ?? x.verdict)} · predicted ${x.odds}% · kept $${Number(x.kept).toFixed(2)} of $${Number(x.amount).toFixed(2)} · ${ago(x.closed)}${x.source === "history" ? "" : ` · <b class="new-tag">NEW</b>`}</span></div>
+              <span class="tr-check" title="${x.correct === null ? "Accepted claim: nothing to check" : x.correct ? "The plan worked" : "The plan didn't work"}">${x.correct === null ? "–" : x.correct ? "✓" : "✗"}</span>
+            </div>`).join("")}
+        </div>
+      </div>
+      <div>
+        <div class="panel in-card chart"><h3>ARE THE WIN ODDS HONEST?</h3>
+          <div class="sub">Fought cases grouped by predicted odds. On the dashed line, "80%" means the seller really wins 8 times in 10.</div>
+          <div class="legend"><span><i class="lg-dot" style="background:${C_RAW}"></i>Agent alone</span><span><i class="lg-sq" style="background:${C_CAL}"></i>With track record</span><span><i class="lg-dash"></i>Perfectly honest</span></div>
+          <div id="ch-calib"></div></div>
+        <div class="panel in-card chart"><h3>PREDICTED vs. ACTUAL, BY CASE TYPE</h3>
+          <div class="sub">Average odds the agent gave vs. how often the seller actually won. A long red bar means the agent needed correcting.</div>
+          <div class="legend"><span><i class="lg-dot" style="background:${C_RAW}"></i>Agent predicted</span><span><i class="lg-dot" style="background:${C_ACTUAL}"></i>Actually won</span></div>
+          <div id="ch-pattern"></div></div>
+      </div>
+    </div>
+  </div>`;
+  calibChart($("#ch-calib"), t.buckets);
+  dumbbell($("#ch-pattern"), t.patterns.filter((p) => p.fought > 0));
+  document.querySelectorAll(".tr-rule").forEach((b) => (b.onclick = async () => {
+    b.disabled = true;
+    b.textContent = "⚖️ REVIEWING…";
+    try {
+      await sleep(700);
+      await DD().api(`/api/disputes/${encodeURIComponent(b.dataset.id)}/ruling`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    } catch (err) {
+      DD().toast("RULING FAILED", err.message, "warn");
+      b.disabled = false;
+    }
+  }));
+}
+
+// Predicted odds (x) vs. actual win rate (y), with the "honest" diagonal.
+function calibChart(el, buckets) {
+  const W = el.clientWidth || 460, H = 300, L = 44, R = 110, T = 12, B = 34;
+  const x = (v) => L + ((W - L - R) * v) / 100;
+  const y = (v) => T + (H - T - B) * (1 - v / 100);
+  const series = [
+    { key: "raw", name: "Agent alone", color: C_RAW, shape: "circle" },
+    { key: "calibrated", name: "With track record", color: C_CAL, shape: "square" },
+  ];
+  const pts = (k) => buckets.map((b) => b[k] && { ...b[k], range: b.range }).filter(Boolean);
+  const marker = (p, s, i) => {
+    const cx = x(p.predicted), cy = y(p.actual);
+    const shape = s.shape === "circle"
+      ? `<circle cx="${cx}" cy="${cy}" r="5" fill="${s.color}" class="cm"/>`
+      : `<rect x="${cx - 5}" y="${cy - 5}" width="10" height="10" rx="2" fill="${s.color}" class="cm"/>`;
+    return `<g class="cpt" data-s="${s.key}" data-i="${i}"><circle cx="${cx}" cy="${cy}" r="13" fill="transparent"/>${shape}</g>`;
+  };
+  const ticks = [0, 25, 50, 75, 100];
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Calibration chart: predicted win odds against actual win rate">
+    ${ticks.map((v) => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${L - 8}" y="${y(v) + 3}" text-anchor="end">${v}%</text><text class="axis" x="${x(v)}" y="${H - B + 16}" text-anchor="middle">${v}%</text>`).join("")}
+    <text class="axis" x="${(L + W - R) / 2}" y="${H - 2}" text-anchor="middle">predicted win odds</text>
+    <text class="axis" x="12" y="${(T + H - B) / 2}" text-anchor="middle" transform="rotate(-90 12 ${(T + H - B) / 2})">actually won</text>
+    <line x1="${x(0)}" y1="${y(0)}" x2="${x(100)}" y2="${y(100)}" class="diag"/>
+    ${series.map((s) => {
+      const p = pts(s.key);
+      const d = p.map((q, i) => `${i ? "L" : "M"}${x(q.predicted).toFixed(1)} ${y(q.actual).toFixed(1)}`).join(" ");
+      const last = p.at(-1);
+      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" opacity=".85"/>
+        ${p.map((q, i) => marker(q, s, i)).join("")}
+        ${last ? `<text class="val" x="${x(last.predicted) + 10}" y="${y(last.actual) + (s.key === "raw" ? 14 : -6)}">${s.name}</text>` : ""}`;
+    }).join("")}
+  </svg>
+  <details class="tbl"><summary>Show data table</summary><table><tr><th>Predicted</th><th>Agent alone: predicted → won (n)</th><th>With track record: predicted → won (n)</th></tr>
+  ${buckets.map((b) => `<tr><td>${b.range}</td><td>${b.raw ? `${b.raw.predicted}% → ${b.raw.actual}% (${b.raw.n})` : "–"}</td><td>${b.calibrated ? `${b.calibrated.predicted}% → ${b.calibrated.actual}% (${b.calibrated.n})` : "–"}</td></tr>`).join("")}</table></details>`;
+  el.querySelectorAll(".cpt").forEach((g) => {
+    const s = series.find((q) => q.key === g.dataset.s);
+    const p = pts(s.key)[g.dataset.i];
+    g.onmousemove = (e) => showTip(e, `<b>${s.name}</b><br/>Predicted ${p.predicted}% · actually won ${p.actual}%<br/>${p.n} case${p.n === 1 ? "" : "s"} in the ${p.range} group`);
+    g.onmouseleave = hideTip;
+  });
+}
+
+// One row per case type: predicted odds dot, actual win-rate dot, joined by a bar.
+function dumbbell(el, rows) {
+  const W = el.clientWidth || 460, labelW = 190, valueW = 70, rowH = 34, top = 8, axisH = 22;
+  const H = top + rows.length * rowH + axisH;
+  const x = (v) => labelW + ((W - labelW - valueW) * v) / 100;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Predicted versus actual win rate by case type">
+    ${[0, 50, 100].map((v) => `<line class="grid" x1="${x(v)}" x2="${x(v)}" y1="${top - 4}" y2="${H - axisH}"/><text class="axis" x="${x(v)}" y="${H - 6}" text-anchor="middle">${v}%</text>`).join("")}
+    ${rows.map((r, i) => {
+      const cy = top + i * rowH + rowH / 2;
+      const short = r.label.replace("Not received · ", "NR · ").replace("Not as described · ", "SNAD · ").replace("Unauthorized · ", "Unauth · ");
+      const big = Math.abs(r.bias) >= 10;
+      return `<g class="drow" data-i="${i}">
+        <rect x="0" y="${cy - rowH / 2}" width="${W}" height="${rowH}" fill="transparent"/>
+        <text class="cat" x="${labelW - 12}" y="${cy + 4}" text-anchor="end">${esc(short)}</text>
+        <line x1="${x(r.avgPredicted)}" x2="${x(r.actual)}" y1="${cy}" y2="${cy}" stroke="${big ? "rgba(255,77,109,.55)" : "rgba(255,255,255,.25)"}" stroke-width="${big ? 4 : 2}" stroke-linecap="round"/>
+        <circle cx="${x(r.avgPredicted)}" cy="${cy}" r="5.5" fill="${C_RAW}" stroke="var(--panel-solid)" stroke-width="2"/>
+        <circle cx="${x(r.actual)}" cy="${cy}" r="5.5" fill="${C_ACTUAL}" stroke="var(--panel-solid)" stroke-width="2"/>
+        <text class="val" x="${W - valueW + 10}" y="${cy + 4}">${r.actual}% <tspan class="axis">n=${r.fought}</tspan></text>
+      </g>`;
+    }).join("")}
+  </svg>
+  <details class="tbl"><summary>Show data table</summary><table><tr><th>Case type</th><th>Predicted</th><th>Actually won</th><th>Fought</th></tr>
+  ${rows.map((r) => `<tr><td>${esc(r.label)}</td><td>${r.avgPredicted}%</td><td>${r.actual}%</td><td>${r.fought}</td></tr>`).join("")}</table></details>`;
+  el.querySelectorAll(".drow").forEach((g) => {
+    const r = rows[g.dataset.i];
+    const gap = r.bias > 0 ? `${r.bias} points too optimistic` : r.bias < 0 ? `${-r.bias} points too cautious` : "spot on";
+    g.onmousemove = (e) => showTip(e, `<b>${esc(r.label)}</b><br/>Agent predicted ${r.avgPredicted}% · actually won ${r.actual}%<br/>${r.fought} fought · ${gap}`);
+    g.onmouseleave = hideTip;
+  });
+}
+
+// Keep the Track Record fresh as responses go out and rulings come in.
+window.addEventListener("dd-event", (e) => {
+  if (!["outcome", "action"].includes(e.detail.type)) return;
+  track.stale = true;
+  if (current === "track") openTrack();
+});

@@ -1,0 +1,18 @@
+{
+  "appId": "com.disputedefender.companion",
+  "appName": "Dispute Defender",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "backgroundColor": "#05080f"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_shield",
+      "iconColor": "#00e5ff"
+    }
+  }
+}

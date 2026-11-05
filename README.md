@@ -31,7 +31,8 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 9. **🎙️ Defender Copilot:** a voice and chat assistant (Ctrl+K or the mic). Ask "brief me", "what's due soon?" or "fight the headphones dispute". It answers out loud and drives the app (opens cases, starts investigations, opens negotiations, toggles Autopilot), but it never moves money.
 10. **🛰️ Risk Radar (prevention):** every new PayPal order is scored for fraud and dispute risk *before it ships*, with an explanation of each signal (address mismatch, freight forwarders, IP country, account age, unverified payer…). Each order gets a recommendation: ship, ship with signature, or hold and verify. Holding a fraudulent order counts as "fraud prevented".
 11. **📊 Insights:** an AI "profit leak" report over 90 days of dispute history, with charts. The numbers are computed in code and the AI only interprets them. It shows where money is lost (root cause, product, week) and the fixes worth the most per month.
-12. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them.
+12. **🧠 Track Record (outcome learning):** every plan the agent sends is remembered until PayPal rules on it (`CUSTOMER.DISPUTE.RESOLVED` webhook, or **⚖️ Simulate PayPal ruling** in demo mode). Results from similar past cases then calibrate the win odds on new disputes, and Autopilot uses the calibrated odds. For example, "delivered" tracking with no photo or signature used to get 78% odds but won only 42% of the time, so a new case like that drops to 54% and waits for approval instead of being fought automatically. The Track Record screen shows the agent's accuracy, a calibration chart and the lessons it learned. All the numbers are computed in code.
+13. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them.
 
 ### Demo scenarios (included)
 
@@ -69,7 +70,7 @@ Fill in `.env`:
 |---|---|---|
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | [developer.paypal.com](https://developer.paypal.com) → Apps & Credentials → **Sandbox** → Create App | Live sandbox disputes plus demo-shop checkout |
 | `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) | Claude (`claude-opus-5-5`) for the agent, vision and negotiation |
-| `PAYPAL_WEBHOOK_ID` (optional) | Your sandbox app → **Webhooks** → add `https://<host>/api/webhooks/paypal` for `CUSTOMER.DISPUTE.CREATED` | Real-time Autopilot. Signatures are checked with PayPal's verify-webhook-signature API |
+| `PAYPAL_WEBHOOK_ID` (optional) | Your sandbox app → **Webhooks** → add `https://<host>/api/webhooks/paypal` for `CUSTOMER.DISPUTE.CREATED` and `CUSTOMER.DISPUTE.RESOLVED` | Real-time Autopilot and outcome learning. Signatures are checked with PayPal's verify-webhook-signature API |
 
 Restart with `npm start`. Both badges in the header should now show live mode.
 
@@ -81,6 +82,10 @@ Restart with `npm start`. Both badges in the header should now show live mode.
 4. Back in Dispute Defender, click ↻. The dispute appears. Click **Analyze with AI**, review the recommendation, then **Approve**.
 
 ---
+
+## Android companion app
+
+[mobile/](mobile/) is a separate Android app (Capacitor). It connects to this server so you can review AI recommendations, approve responses, see PayPal's rulings and get alerts about new disputes from your phone. See [mobile/README.md](mobile/README.md) to build the APK and connect it.
 
 ## Deploy to Render (hosted demo)
 
@@ -117,6 +122,7 @@ Browser (public/)                 Node/Express (src/server.js)
 | [src/copilot.js](src/copilot.js) | Voice/chat Copilot: Claude agent with data tools and app-action tools |
 | [src/risk.js](src/risk.js) | Risk Radar: order fraud and dispute-risk scoring |
 | [src/insights.js](src/insights.js) | Dispute analytics and the AI profit-leak report |
+| [src/outcomes.js](src/outcomes.js) | Track Record: outcome ledger, case patterns and win-odds calibration |
 | [public/views.js](public/views.js) | Risk Radar and Insights screens, charts |
 | [public/copilot.js](public/copilot.js) | Copilot panel, speech recognition and speech output |
 | [src/photos.js](src/photos.js) | Photo evidence storage and Claude vision analysis |
@@ -134,6 +140,7 @@ Browser (public/)                 Node/Express (src/server.js)
 - **Vision:** each photo is sent to Claude as an image along with the dispute context. Claude returns structured findings (summary, visible facts, which side the photo supports, confidence).
 - **Negotiation:** two Claude roles take turns. The seller agent sees the store's private data (orders, tracking, policies). The buyer agent sees only what the buyer wrote. Each turn returns a structured message, refund amount and decision, and amounts are clamped to the disputed total.
 - **Copilot:** a Claude agent with read-only data tools plus "action" tools that drive the UI. Voice uses the browser's speech recognition and speech synthesis.
+- **Outcome learning:** after the agent files its recommendation, the server sorts the case into a pattern (for example "not received, delivered with signature") and blends the agent's win odds with the results of similar past cases. The more past cases there are, the more weight they get. On the sample history this lowers prediction error (Brier score) by about 12%, measured leave-one-out so each case is graded without its own result.
 - **Risk Radar and Insights:** structured-output calls. Risk returns a score, level, action and signed signals. Insights interprets aggregates that the code has already computed, so it can't invent numbers.
 - **Safety:** every tool the agent can call is read-only. Money only moves after a person approves. Server-side refusal fallbacks are enabled (`fallbacks: "default"`).
 - **Demo mode** uses a scripted rules engine ([src/scripted.js](src/scripted.js)) so judges can click through without an API key. The header shows which engine is active.
@@ -141,7 +148,7 @@ Browser (public/)                 Node/Express (src/server.js)
 ### PayPal technologies used
 
 - **Disputes API v1:** list disputes, show details, provide evidence (multipart, with `tracking_info` and photo files), make an offer, accept a claim, send a message.
-- **Webhooks:** `CUSTOMER.DISPUTE.CREATED` triggers Autopilot; signatures are checked with `/v1/notifications/verify-webhook-signature`.
+- **Webhooks:** `CUSTOMER.DISPUTE.CREATED` triggers Autopilot and `CUSTOMER.DISPUTE.RESOLVED` records the ruling for the Track Record; signatures are checked with `/v1/notifications/verify-webhook-signature`.
 - **Orders API v2:** create and capture orders in the demo shop.
 - **PayPal JavaScript SDK:** checkout buttons in the demo shop.
 - **OAuth 2.0 client credentials:** sandbox authentication.

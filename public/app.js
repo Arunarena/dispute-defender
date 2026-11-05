@@ -20,6 +20,12 @@ const MODULES = {
   get_customer_history: { icon: "👤", name: "BUYER INTEL" },
   get_store_policies: { icon: "📜", name: "POLICY VAULT" },
   inspect_photos: { icon: "📸", name: "PHOTO FORENSICS" },
+  track_record: { icon: "🧠", name: "TRACK RECORD" },
+};
+const OUTCOMES = {
+  WON: { label: "WON", text: "PayPal ruled for you", color: "#2bffb1" },
+  SETTLED: { label: "SETTLED", text: "Buyer accepted your offer", color: "#9b7bff" },
+  LOST: { label: "LOST", text: "PayPal ruled for the buyer", color: "#ff4d6d" },
 };
 
 const imgFor = (name = "") => {
@@ -185,6 +191,8 @@ function renderDetail({ withRec = true } = {}) {
       <div class="countdown"><div class="bigamt">${money(d.amount)}</div>${ring(daysLeft(d.sellerResponseDue))}</div>
     </div>
 
+    <div id="ruling"></div>
+
     <div class="section-title">&gt; INTERCEPTED MESSAGES</div>
     <div class="thread">
       ${d.messages.map((m) => `<div class="msg ${esc(m.by)}"><div class="avatar">${m.by === "BUYER" ? esc(initials(d.buyerName)) : m.by === "SELLER" ? "YOU" : "PP"}</div><div class="bubble"><div class="meta">${m.by === "BUYER" ? esc(d.buyerName) : esc(m.by)} · ${new Date(m.time).toLocaleString()}</div>${esc(m.content)}</div></div>`).join("") || `<p class="muted">No messages.</p>`}
@@ -202,7 +210,106 @@ function renderDetail({ withRec = true } = {}) {
   $("#analyze").onclick = () => analyze(d);
   $("#negotiate").onclick = () => openArena(d);
   renderPhotos();
+  renderRuling();
   if (rec && withRec) renderRecommendation(false);
+}
+
+// ---------------- outcome: PayPal's ruling vs. the agent's prediction ----------------
+function renderRuling() {
+  const el = $("#ruling");
+  if (!el) return;
+  const { outcome: o, pending: p, canSimulateRuling, sandboxTools } = state.current;
+  if (o) {
+    const m = OUTCOMES[o.outcome];
+    const verdict = VERDICTS[o.verdict]?.label ?? o.verdict;
+    const check = o.correct === null ? "no win to check" : o.correct ? "✓ the plan worked" : "✗ the plan didn't work";
+    el.innerHTML = `<div class="ruling done" style="--oc:${m.color}">
+      <div class="r-stamp">⚖️ ${m.label}</div>
+      <div><b>${m.text}.</b> You kept <b>$${Number(o.kept).toFixed(2)}</b> of $${Number(o.amount).toFixed(2)}.<br/>
+      <span class="muted">Plan: ${esc(verdict)} · predicted ${o.odds}% win odds · ${check}. Added to the Track Record.</span></div>
+      <button class="mini-btn" id="see-track">🧠 TRACK RECORD</button>
+    </div>`;
+    $("#see-track").onclick = () => window.DD.showView("track");
+    return;
+  }
+  if (!p) {
+    el.innerHTML = sandboxTools ? sandboxPanel() : "";
+    if (sandboxTools) bindSandboxPanel();
+    return;
+  }
+  el.innerHTML = `<div class="ruling">
+    <div class="r-stamp wait">⏳ AWAITING RULING</div>
+    <div>Response sent (${esc(VERDICTS[p.verdict]?.label ?? p.verdict)}, predicted ${p.odds}% win odds). When PayPal rules, the result is recorded and used to calibrate future cases.<br/>
+    <span class="muted">${sandboxTools ? "Sandbox: ask PayPal for a real ruling. The win chance follows the calibrated odds. (To settle an offer, accept it as the buyer in the PayPal sandbox.)" : canSimulateRuling ? "Demo mode: simulate the ruling. The win chance follows the calibrated odds." : "The ruling arrives by PayPal webhook (CUSTOMER.DISPUTE.RESOLVED)."}</span></div>
+    ${canSimulateRuling ? `<button class="cta alt" id="sim-ruling">⚖️ ${sandboxTools ? "GET PAYPAL RULING" : "SIMULATE PAYPAL RULING"}</button>` : ""}
+  </div>`;
+  if (canSimulateRuling) $("#sim-ruling").onclick = () => simulateRuling(state.current.dispute.id);
+}
+
+// Sandbox-only controls for real PayPal sandbox disputes (PayPal refuses them on live accounts).
+function sandboxPanel() {
+  const d = state.current.dispute;
+  if (d.status === "RESOLVED") return "";
+  return `<div class="ruling sandbox">
+    <div class="r-stamp wait">🧪 SANDBOX CONTROLS</div>
+    <div>Real PayPal sandbox calls for testing. They don't exist on live PayPal.<br/>
+    <span class="muted">${d.status === "UNDER_REVIEW" && !state.current.pending ? "This case is still with PayPal, so you can't respond yet. Hand it to you to unlock Approve." : "Or skip ahead: make PayPal rule now."}</span></div>
+    <div class="sb-actions">
+      ${d.status === "UNDER_REVIEW" ? `<button class="mini-btn" id="sb-evidence">⏩ HAND CASE TO SELLER</button>` : ""}
+      <button class="mini-btn" id="sb-seller">⚖️ RULE FOR SELLER</button>
+      <button class="mini-btn" id="sb-buyer">⚖️ RULE FOR BUYER</button>
+    </div>
+  </div>`;
+}
+
+function bindSandboxPanel() {
+  const id = state.current.dispute.id;
+  const run = async (btn, label, fn) => {
+    document.querySelectorAll(".sb-actions button").forEach((b) => (b.disabled = true));
+    btn.textContent = label;
+    try {
+      await fn();
+      state.current = await api(`/api/disputes/${encodeURIComponent(id)}`);
+      if (state.selected === id) renderDetail();
+      await loadList();
+    } catch (e) {
+      toast("SANDBOX CALL FAILED", e.message, "warn");
+      if (state.selected === id) renderRuling();
+    }
+  };
+  const post = (path, body = {}) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  $("#sb-evidence") && ($("#sb-evidence").onclick = (e) => run(e.target, "⏩ ASKING PAYPAL…", async () => {
+    await post(`/api/disputes/${encodeURIComponent(id)}/require-evidence`);
+    toast("✓ CASE HANDED TO YOU", "PayPal now waits for your response. Run the agent and approve.", "good");
+  }));
+  const rule = (outcome) => (e) => run(e.target, "⚖️ PAYPAL IS RULING…", async () => {
+    await post(`/api/disputes/${encodeURIComponent(id)}/ruling`, { outcome });
+    toast(outcome === "WON" ? "⚖️ RULED FOR YOU" : "⚖️ RULED FOR THE BUYER", "PayPal sandbox closed the case.", outcome === "WON" ? "good" : "warn");
+  });
+  $("#sb-seller").onclick = rule("WON");
+  $("#sb-buyer").onclick = rule("LOST");
+}
+
+async function simulateRuling(id) {
+  const btn = $("#sim-ruling");
+  btn.disabled = true;
+  btn.textContent = "⚖️ PAYPAL IS REVIEWING…";
+  try {
+    await sleep(900);
+    const { entry, outcome } = await api(`/api/disputes/${encodeURIComponent(id)}/ruling`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    if (state.current?.dispute.id === id) {
+      state.current = await api(`/api/disputes/${encodeURIComponent(id)}`);
+      renderDetail();
+    }
+    if ((entry?.outcome ?? outcome) !== "LOST") {
+      const r = $("#ruling")?.getBoundingClientRect();
+      if (r) burst(r.left + 80, r.top + 30);
+    }
+    await loadList();
+  } catch (e) {
+    toast("RULING FAILED", e.message, "warn");
+    btn.disabled = false;
+  }
 }
 
 // ---------------- war room (AI processing screen) ----------------
@@ -359,6 +466,14 @@ function detailLines(name, result) {
           [`    ⇒ supports ${p.favors} (${p.confidence}% confidence)`, p.favors === "SELLER" ? "ok" : p.favors === "BUYER" ? "warn" : ""],
         ])
       : [["  ✓ no photos attached", "dim"]];
+  if (name === "track_record") {
+    if (!result.fought.n) return [[`  ✓ pattern: ${result.label}`, "ok"], ["    no fought cases like this yet · odds unchanged", "dim"]];
+    return [
+      [`  ✓ pattern: ${result.label}`, "ok"],
+      [`    ${result.fought.won}/${result.fought.n} similar fought cases won (${result.fought.rate}%)`, ""],
+      [`    agent estimate ${result.raw}% → calibrated ${result.calibrated}%`, Math.abs(result.shift) >= 10 ? "warn" : "ok"],
+    ];
+  }
   return [[`  ✓ ${JSON.stringify(result).slice(0, 120)}`, "ok"]];
 }
 
@@ -493,6 +608,7 @@ function renderRecommendation(animate) {
           <div class="stamp">${v.label}</div>
           <div class="headline">${esc(rec.headline)}</div>
           <div class="saved">💰 KEEPS <b>$${esc(rec.money_saved_estimate)}</b> vs. full refund · engine: ${esc(rec.engine ?? "AI")}</div>
+          ${calibrationStrip(rec.calibration)}
         </div>
       </div>
       <div class="board">
@@ -525,6 +641,16 @@ function renderRecommendation(animate) {
     requestAnimationFrame(() => requestAnimationFrame(() => ($(".gauge .arc").style.strokeDashoffset = c * (1 - pct / 100))));
     countUp($("#gauge-num"), pct, { suffix: "%" });
   }
+}
+
+function calibrationStrip(cal) {
+  if (!cal) return "";
+  const body = cal.fought.n
+    ? `${cal.fought.won} of ${cal.fought.n} similar cases won (${cal.fought.rate}%). Agent estimate <b>${cal.raw}%</b> → <b>${cal.calibrated}%</b>`
+    : "No resolved cases like this yet, so the agent's estimate stands";
+  const plan = cal.plan.n && cal.plan.verdict !== "FIGHT" ? ` · this plan worked ${cal.plan.worked}/${cal.plan.n} times` : "";
+  const cls = cal.shift <= -10 ? "down" : cal.shift >= 10 ? "up" : "";
+  return `<div class="calib ${cls}" title="Win odds are blended with the results of similar past disputes">🧠 <span class="cl">TRACK RECORD · ${esc(cal.label)}</span><br/>${body}${plan}</div>`;
 }
 
 // ---------------- approve + transmit ----------------
@@ -585,7 +711,15 @@ async function approve(d, rec) {
   burst(r.left + r.width / 2, r.top + r.height / 2);
   btn.textContent = "✓ SENT";
   $("#sent").innerHTML = `<div class="done">✓ ${out.entry.simulated ? "Done (demo mode, PayPal call simulated)" : "Delivered to PayPal"} · ${esc(out.entry.call)}<pre>${esc(JSON.stringify(out.paypalResponse, null, 2))}</pre></div>`;
+  await refreshRuling(d.id);
   await loadList();
+}
+
+async function refreshRuling(id) {
+  if (state.current?.dispute.id !== id) return;
+  const fresh = await api(`/api/disputes/${encodeURIComponent(id)}`);
+  Object.assign(state.current, { pending: fresh.pending, outcome: fresh.outcome, canSimulateRuling: fresh.canSimulateRuling, sandboxTools: fresh.sandboxTools });
+  renderRuling();
 }
 
 // ---------------- photo evidence (AI vision) ----------------
@@ -786,6 +920,7 @@ function feed(text, kind = "") {
 
 const RULE_KEYS = ["fightMinOdds", "fightMaxAmount", "settleMaxAmount"];
 function showRules(r) {
+  state.rules = r;
   $("#ap-enabled").checked = r.enabled;
   $("#autopilot").classList.toggle("on", r.enabled);
   $("#ap-sub").textContent = r.enabled ? "ON: new disputes are handled the moment they arrive, within your limits." : "Off: every dispute waits for you.";
@@ -838,7 +973,9 @@ function connectEvents() {
         setAp(ev.disputeId, ev.label.toLowerCase() + "…", true);
         break;
       case "autopilot_decision":
-        feed(`◆ ${ev.disputeId}: ${VERDICTS[ev.verdict]?.label} (${ev.odds}%) → ${ev.auto ? "AUTO" : "HOLD"}`, ev.auto ? "good" : "warn");
+        feed(`◆ ${ev.disputeId}: ${VERDICTS[ev.verdict]?.label} (${ev.rawOdds != null && ev.rawOdds !== ev.odds ? `${ev.rawOdds}→` : ""}${ev.odds}%) → ${ev.auto ? "AUTO" : "HOLD"}`, ev.auto ? "good" : "warn");
+        if (ev.verdict === "FIGHT" && !ev.auto && ev.rawOdds >= state.rules?.fightMinOdds && ev.odds < state.rules?.fightMinOdds)
+          toast("🧠 TRACK RECORD STEPPED IN", `${ev.disputeId}: the agent said ${ev.rawOdds}%, but similar past cases put it at ${ev.odds}%. Held for your approval.`, "warn");
         break;
       case "action":
         if (ev.entry.source === "AUTOPILOT") {
@@ -852,6 +989,13 @@ function connectEvents() {
         setAp(ev.disputeId, `needs your approval: ${ev.reason}`);
         if (ev.verdict) toast("✋ NEEDS YOUR APPROVAL", `${ev.disputeId}: ${ev.reason}`, "warn");
         break;
+      case "outcome": {
+        const m = OUTCOMES[ev.entry.outcome];
+        toast(`⚖️ PAYPAL RULED · ${m.label}`, `${ev.entry.disputeId}: kept $${Number(ev.entry.kept).toFixed(2)} (predicted ${ev.entry.odds}%). Track Record updated.`, ev.entry.outcome === "LOST" ? "warn" : "good");
+        feed(`⚖ ${ev.entry.disputeId}: ${m.label} · learned`, ev.entry.outcome === "LOST" ? "bad" : "good");
+        if (state.current?.dispute.id === ev.entry.disputeId && !state.current.outcome) await refreshRuling(ev.entry.disputeId);
+        break;
+      }
       case "autopilot_error":
         setAp(ev.disputeId, `error: ${ev.message}`);
         feed(`✗ ${ev.disputeId}: ${ev.message}`, "bad");
@@ -892,8 +1036,51 @@ window.DD = {
   async simulate() { await api("/api/simulate/dispute", { method: "POST" }); },
 };
 
-$("#refresh").onclick = loadList;
+// Refresh button: show that it ran, and what it found.
+$("#refresh").onclick = async () => {
+  const btn = $("#refresh");
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.classList.add("spinning");
+  const before = new Set(state.disputes.map((d) => d.id));
+  await loadList();
+  btn.classList.remove("spinning");
+  btn.disabled = false;
+  const added = state.disputes.filter((d) => !before.has(d.id)).length;
+  const sandbox = state.config?.paypalMode === "sandbox";
+  toast(
+    added ? `✓ ${added} NEW DISPUTE${added > 1 ? "S" : ""}` : "✓ UP TO DATE",
+    `${state.disputes.length} dispute(s).${sandbox && !added ? " New sandbox cases can take 15+ minutes to reach PayPal's list. Paste the case ID above to open one now." : ""}`,
+    added ? "good" : "",
+  );
+};
+
+// Open a case by ID (sandbox cases show up here long before they reach PayPal's list).
+$("#case-open").onsubmit = async (e) => {
+  e.preventDefault();
+  const id = $("#case-id").value.trim().toUpperCase();
+  if (!/^PP-[w-]+$/.test(id)) return toast("CHECK THE CASE ID", "It looks like PP-R-ABC-12345678 (shown on PayPal's case page).", "warn");
+  $("#case-id").value = "";
+  await selectDispute(id);
+  if (state.current?.dispute?.id === id) await loadList();
+};
 await loadConfig();
 await loadAutopilot();
+// Sandbox: show the case-ID box, and check PayPal for new disputes every 30 seconds.
+if (state.config.paypalMode === "sandbox") {
+  $("#case-open").classList.remove("hidden");
+  setInterval(() => { if (document.visibilityState === "visible") loadList(); }, 30000);
+}
 connectEvents();
 await loadList();
+
+// Open a case straight from its ID: http://localhost:3000/#PP-R-ABC-12345678
+// (useful while a new sandbox dispute hasn't reached PayPal's list yet).
+async function openFromHash() {
+  const id = decodeURIComponent(location.hash.slice(1)).trim();
+  if (!/^PP-[w-]+$/.test(id)) return;
+  await selectDispute(id);
+  await loadList();
+}
+window.addEventListener("hashchange", openFromHash);
+await openFromHash();

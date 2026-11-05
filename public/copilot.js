@@ -9,7 +9,7 @@ const history = [];
 let speak = true;
 let busy = false;
 
-const CHIPS = ["Brief me", "What's due soon?", "Fight the headphones dispute", "Negotiate with Priya", "Show me Risk Radar", "Why am I losing money?", "Turn on Autopilot"];
+const CHIPS = ["Brief me", "What's due soon?", "Fight the headphones dispute", "Negotiate with Priya", "Show me Risk Radar", "Why am I losing money?", "What have you learned?", "Turn on Autopilot"];
 $("#cp-chips").innerHTML = CHIPS.map((c) => `<button class="chip">${esc(c)}</button>`).join("");
 document.querySelectorAll(".chip").forEach((b) => (b.onclick = () => send(b.textContent)));
 

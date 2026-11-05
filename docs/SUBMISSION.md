@@ -21,13 +21,14 @@ Dispute Defender is an AI dispute analyst for PayPal sellers:
 - **Runs on Autopilot.** PayPal webhooks trigger analysis the moment a dispute opens. The agent acts on its own only within rules the seller sets (minimum win odds, maximum amounts) and holds everything else for approval. Every automatic action is logged with the rule that allowed it.
 - **Builds an evidence dossier.** A professional PDF with the timeline, address check, AI-read photos and policies is attached to the PayPal evidence submission automatically.
 - **Prevents disputes before they happen.** Risk Radar scores each new PayPal order for fraud and dispute risk before it ships and recommends ship, require a signature, or hold.
+- **Learns from PayPal's rulings.** Every plan's outcome is recorded. Results from similar past cases calibrate the win odds on new disputes, so the agent stops being overconfident where it has been wrong before, and Autopilot holds those cases for approval. A Track Record screen shows its accuracy and what it learned.
 - **Finds the profit leaks.** An AI report over 90 days of disputes shows where money is lost and which fixes are worth the most per month.
 - **Talks.** Defender Copilot answers by voice ("brief me", "fight the headphones dispute") and drives the app hands-free.
 - **Human in control.** The agent's tools are read-only. Money moves only after approval or under an explicit rule.
 
 ## How PayPal is used
 - **Disputes API v1:** list and read disputes; `provide-evidence` (multipart, with tracking info and photo files), `make-offer`, `accept-claim`, `send-message`.
-- **Webhooks:** `CUSTOMER.DISPUTE.CREATED` starts Autopilot. Signatures are checked with `verify-webhook-signature`.
+- **Webhooks:** `CUSTOMER.DISPUTE.CREATED` starts Autopilot. `CUSTOMER.DISPUTE.RESOLVED` feeds the ruling back into the Track Record. Signatures are checked with `verify-webhook-signature`.
 - **Orders API v2 + JavaScript SDK:** the demo shop creates real sandbox purchases to dispute.
 - **OAuth 2.0** client credentials, all in the PayPal sandbox.
 

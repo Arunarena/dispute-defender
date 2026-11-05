@@ -5,6 +5,15 @@
 const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
 const daysFromNow = (n) => new Date(Date.now() + n * 86400000).toISOString();
 
+// The headphones case uses fixed dates because its carrier photo (public/samples/porch-delivery.png)
+// has "USPS PROOF OF DELIVERY · 10/17/2026 14:12" printed on it. 14:12 in Portland is 21:12 UTC.
+const HEADPHONES = {
+  placed: "2026-10-13T18:05:00.000Z",
+  shipped: "2026-10-14T16:30:00.000Z",
+  arrived: "2026-10-16T13:40:00.000Z",
+  delivered: "2026-10-17T21:12:00.000Z",
+};
+
 export const demoDisputes = [
   {
     id: "PP-D-DEMO-1001",
@@ -22,7 +31,7 @@ export const demoDisputes = [
         by: "BUYER",
         time: daysAgo(3),
         content:
-          "I ordered these headphones two weeks ago and never got them. Tracking is useless. I want my money back.",
+          "I ordered these headphones weeks ago and never got them. Tracking is useless. I want my money back.",
       },
     ],
   },
@@ -92,12 +101,12 @@ export const demoDisputes = [
 export const demoOrders = {
   "7XK45123AB9876543": {
     orderId: "SHOP-20481",
-    placed: daysAgo(16),
+    placed: HEADPHONES.placed,
     customerEmail: "jordan.miles@example.com",
     shippingAddress: "418 Birch Lane, Portland, OR 97205, US",
     billingAddress: "418 Birch Lane, Portland, OR 97205, US",
     items: [{ name: "Aurora ANC Wireless Headphones", sku: "AUR-ANC-01", price: "129.00" }],
-    shipping: { carrier: "USPS", trackingNumber: "9400111202555842761003", shipped: daysAgo(15) },
+    shipping: { carrier: "USPS", trackingNumber: "9400111202555842761003", shipped: HEADPHONES.shipped },
     ipCountry: "US",
   },
   "3MN88210CD4455667": {
@@ -137,10 +146,10 @@ export const demoTracking = {
   "9400111202555842761003": {
     status: "DELIVERED",
     events: [
-      { time: daysAgo(15), location: "Seattle, WA", detail: "Accepted at USPS origin facility" },
-      { time: daysAgo(13), location: "Portland, OR", detail: "Arrived at post office" },
+      { time: HEADPHONES.shipped, location: "Seattle, WA", detail: "Accepted at USPS origin facility" },
+      { time: HEADPHONES.arrived, location: "Portland, OR", detail: "Arrived at post office" },
       {
-        time: daysAgo(12),
+        time: HEADPHONES.delivered,
         location: "Portland, OR 97205",
         detail: "Delivered, front door/porch. Photo-on-delivery captured. GPS matches shipping address.",
       },
@@ -270,6 +279,16 @@ export const incomingTemplates = [
     items: [{ name: "Nova Pro Gaming Headset", quantity: 1 }],
     message: "This charge is not mine.",
   },
+  {
+    // Delivered with no photo and no signature: the pattern the agent used to be overconfident on.
+    reason: "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+    stage: "CHARGEBACK",
+    amount: { value: "129.00", currency: "USD" },
+    buyerName: "Sam Ortiz",
+    transactionId: "4HJ88550QR9900112",
+    items: [{ name: "Aurora ANC Wireless Headphones", quantity: 1 }],
+    message: "Tracking says delivered but there was nothing in my mailbox.",
+  },
 ];
 
 Object.assign(demoOrders, {
@@ -303,6 +322,16 @@ Object.assign(demoOrders, {
     shipping: { carrier: "FEDEX", trackingNumber: "794644790177", shipped: daysAgo(3) },
     ipCountry: "VN",
   },
+  "4HJ88550QR9900112": {
+    orderId: "SHOP-20630",
+    placed: daysAgo(9),
+    customerEmail: "sam.ortiz@example.com",
+    shippingAddress: "77 Elm St, Apt 2, Columbus, OH 43215, US",
+    billingAddress: "77 Elm St, Apt 2, Columbus, OH 43215, US",
+    items: [{ name: "Aurora ANC Wireless Headphones", sku: "AUR-ANC-01", price: "129.00" }],
+    shipping: { carrier: "USPS", trackingNumber: "9400111202555842799990", shipped: daysAgo(8) },
+    ipCountry: "US",
+  },
 });
 
 Object.assign(demoTracking, {
@@ -328,6 +357,14 @@ Object.assign(demoTracking, {
       { time: daysAgo(1), location: "Newark, NJ 07114", detail: "Delivered to freight forwarding warehouse. Signed by: DOCK 2" },
     ],
   },
+  "9400111202555842799990": {
+    status: "DELIVERED",
+    events: [
+      { time: daysAgo(8), location: "Asheville, NC", detail: "Accepted at USPS origin facility" },
+      { time: daysAgo(5), location: "Columbus, OH", detail: "Arrived at post office" },
+      { time: daysAgo(4), location: "Columbus, OH 43215", detail: "Delivered, in/at mailbox" },
+    ],
+  },
 });
 
 Object.assign(demoCustomers, {
@@ -341,6 +378,9 @@ Object.assign(demoCustomers, {
   "m.hale.deals77@example.net": {
     accountAgeDays: 2, orders: 1, totalSpent: "219.00", priorDisputes: 0,
     notes: "Brand-new account; email doesn't match the cardholder's name.",
+  },
+  "sam.ortiz@example.com": {
+    accountAgeDays: 610, orders: 2, totalSpent: "171.00", priorDisputes: 0, notes: "No issues on the previous order.",
   },
 });
 

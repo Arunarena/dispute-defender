@@ -1,0 +1,25 @@
+{
+  "name": "dispute-defender-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Android companion app for Dispute Defender: review AI recommendations and approve PayPal dispute responses on the go.",
+  "scripts": {
+    "engine": "node scripts/copy-engine.mjs",
+    "sync": "node scripts/copy-engine.mjs && cap sync android",
+    "open": "cap open android",
+    "build:debug": "node scripts/copy-engine.mjs && cap sync android && cd android && gradlew.bat assembleDebug",
+    "build:release": "node scripts/copy-engine.mjs && cap sync android && cd android && gradlew.bat bundleRelease",
+    "serve": "npx --yes http-server www -p 5174 -c-1"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/local-notifications": "^8.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0"
+  }
+}

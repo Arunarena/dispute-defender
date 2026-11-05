@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar notification icon (Android only uses its alpha). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <group android:scaleX="0.4" android:scaleY="0.4" android:translateX="2.4" android:translateY="0.8">
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M24,2 L44,10 V26 C44,40 35,49 24,54 C13,49 4,40 4,26 V10 Z" />
+    </group>
+</vector>

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Dispute Defender</string>
+    <string name="title_activity_main">Dispute Defender</string>
+    <string name="package_name">com.disputedefender.companion</string>
+    <string name="custom_url_scheme">com.disputedefender.companion</string>
+</resources>

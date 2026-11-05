@@ -17,12 +17,12 @@ function buildTools(ctx, actions) {
   return [
     betaZodTool({ name: "list_disputes", description: "List all disputes with ID, buyer, item, amount, reason, stage, status, days left, and the AI verdict if one exists.", inputSchema: z.object({}), run: async () => JSON.stringify(await ctx.disputes()) }),
     betaZodTool({ name: "get_dispute", description: "Full details of one dispute: messages, order, tracking, buyer history, AI recommendation.", inputSchema: z.object({ dispute_id: z.string() }), run: async ({ dispute_id }) => JSON.stringify(await ctx.dispute(dispute_id)) }),
-    betaZodTool({ name: "get_overview", description: "Totals: open disputes, money at stake, revenue protected, recent actions, Autopilot rules, Risk Radar stats.", inputSchema: z.object({}), run: async () => JSON.stringify(await ctx.overview()) }),
+    betaZodTool({ name: "get_overview", description: "Totals: open disputes, money at stake, revenue protected, recent actions, Autopilot rules, Risk Radar stats, and the agent's track record (how often its plans worked and what it learned from past rulings).", inputSchema: z.object({}), run: async () => JSON.stringify(await ctx.overview()) }),
     betaZodTool({ name: "list_orders", description: "Recent orders awaiting shipment with their fraud risk scores (Risk Radar).", inputSchema: z.object({}), run: async () => JSON.stringify(ctx.orders()) }),
     betaZodTool({ name: "open_dispute", description: "Show a dispute on screen.", inputSchema: z.object({ dispute_id: z.string() }), run: async ({ dispute_id }) => act("open_dispute", { id: dispute_id }) }),
     betaZodTool({ name: "run_investigation", description: "Open a dispute and start the AI investigation on screen. The seller reviews and approves the result.", inputSchema: z.object({ dispute_id: z.string() }), run: async ({ dispute_id }) => act("analyze", { id: dispute_id }) }),
     betaZodTool({ name: "open_negotiation", description: "Open the negotiation arena for an inquiry-stage dispute.", inputSchema: z.object({ dispute_id: z.string() }), run: async ({ dispute_id }) => act("negotiate", { id: dispute_id }) }),
-    betaZodTool({ name: "show_view", description: "Switch the main screen.", inputSchema: z.object({ view: z.enum(["disputes", "radar", "insights"]) }), run: async ({ view }) => act("view", { view }) }),
+    betaZodTool({ name: "show_view", description: "Switch the main screen: disputes, radar (Risk Radar), insights, or track (Track Record: prediction accuracy and what the agent learned from past PayPal rulings).", inputSchema: z.object({ view: z.enum(["disputes", "radar", "insights", "track"]) }), run: async ({ view }) => act("view", { view }) }),
     betaZodTool({ name: "set_autopilot", description: "Turn Autopilot on or off.", inputSchema: z.object({ enabled: z.boolean() }), run: async ({ enabled }) => act("autopilot", { enabled }) }),
     betaZodTool({ name: "simulate_dispute", description: "Simulate a new dispute arriving from PayPal (demo).", inputSchema: z.object({}), run: async () => act("simulate") }),
   ];
@@ -78,6 +78,11 @@ async function scripted(text, ctx, actions) {
     const risky = ctx.orders().filter((o) => o.risk?.level === "HIGH");
     return risky.length ? `Opening Risk Radar. ${risky.length} orders look high risk, so hold them before shipping.` : "Opening Risk Radar. I'll score every order awaiting shipment.";
   }
+  if (/track record|learn|accura|calibrat|predict|how good are you/.test(t)) {
+    actions.push({ type: "view", view: "track" });
+    const tr = (await ctx.overview()).trackRecord;
+    return `Opening the Track Record. My plans worked in ${tr.planSuccess}% of ${tr.resolved} resolved cases, and learning from past rulings cut my prediction error by ${tr.predictionError.improvement}%. Biggest lesson: ${tr.lessons[0] ?? "none yet"}`;
+  }
   if (/insight|losing|leak|report|why/.test(t)) { actions.push({ type: "view", view: "insights" }); return "Opening Insights. Here's where disputes are costing you money and how to fix it."; }
   if (/due|deadline|urgent|soon/.test(t)) {
     const s = [...open].sort((a, b) => a.daysLeft - b.daysLeft).slice(0, 2);
@@ -99,5 +104,5 @@ async function scripted(text, ctx, actions) {
     if (f) actions.push({ type: "open_dispute", id: f.id });
     return f ? `The riskiest is ${f.buyerName}'s ${f.item} for ${money(f.amount)}. It has the classic signs of stolen-account fraud.` : "No risky disputes right now.";
   }
-  return `I can brief you, find urgent disputes, investigate or negotiate one, open Risk Radar or Insights, or switch Autopilot on. Try "brief me" or "fight the headphones dispute". (Demo mode: add a Claude API key for full conversations.)`;
+  return `I can brief you, find urgent disputes, investigate or negotiate one, open Risk Radar, Insights or the Track Record, or switch Autopilot on. Try "brief me" or "fight the headphones dispute". (Demo mode: add a Claude API key for full conversations.)`;
 }

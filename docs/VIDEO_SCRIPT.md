@@ -38,8 +38,12 @@ Narration is about 400 words, which runs about 2:45 at a calm pace.
 
 > "Now, Autopilot. PayPal sends a webhook the moment a dispute opens, and the agent handles it at once, but only within rules I set. Fight automatically above eighty percent odds and under two hundred dollars. Settle small refunds under twenty-five. Here come three disputes. It fights the speaker claim and settles the napkins on its own. But this two-hundred-nineteen-dollar fraud case is over my limit, so it waits for my approval. Every action is logged with the rule that allowed it."
 
+*Optional (if time allows):* click **📡 Simulate dispute** a fourth time. The agent says 78% on a "delivered, but no photo or signature" case. The track record drops it to 54%, and a **🧠 TRACK RECORD STEPPED IN** alert holds it for approval.
+
+> "And it learns. Cases like this one used to look like easy wins, but PayPal's past rulings say otherwise, so it holds this one for me."
+
 ### 2:35–2:50 · Close
-**Screen:** Click the **🛰️ Risk Radar** tab and let the scan run. Click **HOLD & VERIFY** on Kevin's $579 order (confetti). Flash the **📊 Insights** tab.
+**Screen:** Click the **🛰️ Risk Radar** tab and let the scan run. Click **HOLD & VERIFY** on Kevin's $579 order (confetti). Flash the **📊 Insights** and **🧠 Track Record** tabs.
 
 > "And it prevents disputes too. Risk Radar scores every PayPal order before it ships, and this one is fraud. Hold it, and that dispute never happens."
 

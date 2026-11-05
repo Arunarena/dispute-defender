@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import fs from "fs";
 import path from "path";
 import * as paypal from "./paypal.js";
 import { analyzeDispute, claudeConfigured, MODEL } from "./agent.js";
@@ -12,13 +13,30 @@ import { buildDossier } from "./dossier.js";
 import { listOrders, getOrder, addOrder, simulateOrder, scoreOrder, decideOrder, riskStats } from "./risk.js";
 import { buildReport } from "./insights.js";
 import { askCopilot } from "./copilot.js";
+import { calibrate, casePattern, notePrediction, pendingFor, pendingIds, outcomeFor, recordOutcome, outcomeFromPayPal, trackRecord } from "./outcomes.js";
 
 const app = express();
 app.use(express.json({ limit: "8mb" }));
+
+// Let the Android companion app (a Capacitor WebView at http://localhost) call the API.
+// Other localhost ports are allowed too, for previewing the app screens in a desktop browser.
+const APP_ORIGIN = /^(https?|capacitor):\/\/localhost(:\d+)?$/;
+app.use("/api", (req, res, next) => {
+  if (APP_ORIGIN.test(req.headers.origin ?? "")) {
+    res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  }
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 app.use(express.static(path.resolve("public")));
 app.use("/uploads", express.static(path.resolve("data", "uploads")));
 
 const live = () => paypal.paypalConfigured();
+// A real dispute on the PayPal sandbox (not a simulated one).
+const isSandboxCase = (id) => live() && !id.startsWith("PP-D-SIM-") && !/api-m.paypal.com/.test(process.env.PAYPAL_API_BASE ?? "");
 
 // Demo-mode state (in memory). Resets when the server restarts.
 const demoState = structuredClone(demoDisputes);
@@ -46,11 +64,31 @@ const wrap = (fn) => async (req, res) => {
 
 function sse(res) {
   res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+  res.write(": connected\n\n"); // send headers now so clients know the stream is open
   return (event) => res.write(`data: ${JSON.stringify(event)}\n\n`);
 }
 
+// Sandbox disputes can take hours to show up in PayPal's list, though fetching one by ID
+// works at once. So we remember every case we've fetched by ID and add it to the list.
+const KNOWN_FILE = path.resolve("data", "known-disputes.json");
+const knownIds = new Set((() => { try { return JSON.parse(fs.readFileSync(KNOWN_FILE, "utf8")); } catch { return []; } })());
+function rememberDispute(id) {
+  if (knownIds.has(id)) return;
+  knownIds.add(id);
+  try {
+    fs.mkdirSync(path.dirname(KNOWN_FILE), { recursive: true });
+    fs.writeFileSync(KNOWN_FILE, JSON.stringify([...knownIds], null, 2));
+  } catch (err) {
+    console.error("Could not save known disputes:", err.message);
+  }
+}
+
 async function loadDispute(id) {
-  if (live() && !id.startsWith("PP-D-SIM-")) return paypal.getDispute(id);
+  if (live() && !id.startsWith("PP-D-SIM-")) {
+    const d = await paypal.getDispute(id);
+    rememberDispute(d.id);
+    return d;
+  }
   const d = demoState.find((x) => x.id === id);
   if (!d) throw Object.assign(new Error("Dispute not found"), { status: 404 });
   return d;
@@ -63,6 +101,16 @@ function intelFor(dispute) {
     tracking: order?.shipping ? findTracking(order.shipping.trackingNumber) : null,
     customer: order ? findCustomer(order.customerEmail) : null,
   };
+}
+
+// Runs the agent, then calibrates its win odds against the track record of similar past cases.
+async function runAgent(dispute, emit) {
+  const rec = await analyzeDispute(dispute, emit);
+  emit({ type: "tool", name: "track_record", label: "Checking the track record", input: {} });
+  const cal = calibrate(dispute, intelFor(dispute), listPhotos(dispute.id), rec);
+  emit({ type: "tool_result", name: "track_record", result: cal });
+  recommendations.set(dispute.id, rec);
+  return rec;
 }
 
 // ---------------- core action: carry out a decision on PayPal ----------------
@@ -129,6 +177,10 @@ async function executeAction(dispute, rec, { source = "MANUAL", rule = null } = 
     debugId: result?.debugId ?? null,
   };
   activity.unshift(entry);
+  notePrediction(dispute, rec, {
+    simulated: !sendLive,
+    pattern: rec.calibration?.pattern ?? casePattern(dispute, intelFor(dispute), listPhotos(id)),
+  });
 
   if (!sendLive) {
     const d = demoState.find((x) => x.id === id);
@@ -150,12 +202,11 @@ async function handleIncoming(disputeId, via) {
     return;
   }
   publish({ type: "autopilot_start", disputeId });
-  const rec = await analyzeDispute(dispute, (ev) => {
+  const rec = await runAgent(dispute, (ev) => {
     if (ev.type === "tool") publish({ type: "autopilot_step", disputeId, label: ev.label });
   });
-  recommendations.set(dispute.id, rec);
   const verdict = decide(dispute, rec);
-  publish({ type: "autopilot_decision", disputeId, verdict: rec.verdict, odds: rec.win_likelihood, ...verdict });
+  publish({ type: "autopilot_decision", disputeId, verdict: rec.verdict, odds: rec.win_likelihood, rawOdds: rec.calibration?.raw, ...verdict });
   if (verdict.auto) await executeAction(dispute, rec, { source: "AUTOPILOT", rule: verdict.rule });
   else publish({ type: "needs_approval", disputeId, reason: verdict.rule, verdict: rec.verdict });
 }
@@ -185,13 +236,22 @@ app.get("/api/events", (req, res) => {
 async function listAllDisputes() {
   const sims = demoState.filter((d) => d.id.startsWith("PP-D-SIM-"));
   const fromDemo = (list) => list.map(({ messages, items, ...rest }) => ({ ...rest, item: items[0]?.name, photos: listPhotos(rest.id).length }));
-  return live() ? [...fromDemo(sims), ...(await paypal.listDisputes())] : fromDemo(demoState);
+  if (!live()) return fromDemo(demoState);
+  const listed = await paypal.listDisputes();
+  const missing = [...knownIds].filter((id) => !listed.some((d) => d.id === id));
+  const extra = (await Promise.all(missing.map((id) => paypal.getDispute(id).catch(() => null))))
+    .filter(Boolean)
+    .map(({ messages, items, evidences, allowedResponses, ...rest }) => ({ ...rest, item: items[0]?.name }));
+  return [...fromDemo(sims), ...listed, ...extra];
 }
 
 app.get(
   "/api/disputes",
   wrap(async (req, res) => {
-    res.json({ disputes: await listAllDisputes(), activity });
+    const disputes = await listAllDisputes();
+    // No webhook needed: record PayPal's ruling as soon as a case we answered shows as resolved.
+    await syncResolved(disputes);
+    res.json({ disputes, activity });
   }),
 );
 
@@ -199,7 +259,18 @@ app.get(
   "/api/disputes/:id",
   wrap(async (req, res) => {
     const dispute = await loadDispute(req.params.id);
-    res.json({ dispute, intel: intelFor(dispute), photos: listPhotos(dispute.id), recommendation: recommendations.get(dispute.id) ?? null });
+    await syncResolved([dispute]);
+    res.json({
+      dispute,
+      intel: intelFor(dispute),
+      photos: listPhotos(dispute.id),
+      recommendation: recommendations.get(dispute.id) ?? null,
+      pending: pendingFor(dispute.id),
+      outcome: outcomeFor(dispute.id),
+      // Demo: simulated ruling. Sandbox: a real PayPal ruling (adjudicate). Live PayPal: arrives by webhook.
+      canSimulateRuling: !live() || dispute.id.startsWith("PP-D-SIM-") || isSandboxCase(dispute.id),
+      sandboxTools: isSandboxCase(dispute.id),
+    });
   }),
 );
 
@@ -208,8 +279,7 @@ app.get("/api/disputes/:id/analyze", async (req, res) => {
   const emit = sse(res);
   try {
     const dispute = await loadDispute(req.params.id);
-    const rec = await analyzeDispute(dispute, emit);
-    recommendations.set(dispute.id, rec);
+    const rec = await runAgent(dispute, emit);
     emit({ type: "result", recommendation: rec });
   } catch (err) {
     console.error(err);
@@ -288,6 +358,117 @@ app.post(
   }),
 );
 
+// ---- outcome learning ----
+const applyOutcome = (entry) => {
+  publish({ type: "outcome", entry });
+  return entry;
+};
+
+// PayPal's final ruling on a case.
+// Demo disputes: simulated. Sandbox disputes: a real ruling through PayPal's sandbox-only adjudicate call.
+// Without a chosen outcome, the chance of a win follows the calibrated odds, so the result is realistic, not rigged.
+app.post(
+  "/api/disputes/:id/ruling",
+  wrap(async (req, res) => {
+    const dispute = await loadDispute(req.params.id);
+    const p = pendingFor(dispute.id);
+    const wanted = ["WON", "SETTLED", "LOST"].includes(req.body?.outcome) ? req.body.outcome : null;
+    if (live() && !dispute.id.startsWith("PP-D-SIM-")) {
+      if (!isSandboxCase(dispute.id)) return res.status(400).json({ error: "PayPal rules on live disputes. The result arrives by webhook." });
+      return res.json(await sandboxRuling(dispute, p, wanted));
+    }
+    if (!p) return res.status(400).json({ error: outcomeFor(dispute.id) ? "PayPal has already ruled on this dispute." : "Respond to this dispute first." });
+    const outcome = wanted ?? rollOutcome(p);
+    const entry = recordOutcome(dispute.id, outcome, { source: "simulated" });
+    const d = demoState.find((x) => x.id === dispute.id);
+    if (d) {
+      d.status = "RESOLVED";
+      d.outcome = outcome;
+      const note = {
+        WON: "Case closed in the seller's favor. No refund is due.",
+        SETTLED: "The buyer accepted the seller's offer. Case closed.",
+        LOST: "Case closed in the buyer's favor. The buyer has been refunded.",
+      }[outcome];
+      d.messages.push({ by: "PAYPAL", time: entry.closed, content: note });
+    }
+    res.json({ ok: true, entry: applyOutcome(entry) });
+  }),
+);
+
+function rollOutcome(p) {
+  const roll = Math.random() * 100;
+  return p.verdict === "FIGHT" ? (roll < p.odds ? "WON" : "LOST")
+    : p.verdict === "OFFER_PARTIAL_REFUND" ? (roll < 80 ? "SETTLED" : "LOST")
+    : p.verdict === "SEND_MESSAGE" ? (roll < 85 ? "WON" : "LOST")
+    : "LOST";
+}
+
+// Sandbox: ask PayPal to rule for the seller or the buyer, then record the result.
+async function sandboxRuling(dispute, p, wanted) {
+  const fail = (message) => Object.assign(new Error(message), { status: 400 });
+  if (dispute.status === "RESOLVED") {
+    // Already closed on PayPal (for example after accepting the claim): just record it.
+    await recordLiveRuling(dispute.id);
+    const entry = outcomeFor(dispute.id);
+    if (!entry) throw fail("PayPal has already closed this dispute.");
+    return { ok: true, outcome: entry.outcome, entry };
+  }
+  if (!p && !wanted) throw fail("Respond to this dispute first, or pick who wins.");
+  if (p?.verdict === "OFFER_PARTIAL_REFUND" && !wanted)
+    throw fail("To settle, log in to the PayPal sandbox as the buyer and accept your offer. The result is then recorded automatically.");
+  const outcome = wanted ?? rollOutcome(p);
+  if (outcome === "SETTLED") throw fail("PayPal can only rule for the seller or the buyer. A settlement happens when the buyer accepts your offer.");
+  await paypal.adjudicate(dispute.id, outcome === "WON" ? "SELLER_FAVOR" : "BUYER_FAVOR");
+  const entry = p ? recordOutcome(dispute.id, outcome, { source: "paypal-sandbox" }) : null;
+  if (entry) applyOutcome(entry);
+  else publish({ type: "outcome_untracked", disputeId: dispute.id, outcome });
+  return { ok: true, outcome, entry };
+}
+
+// Sandbox: move a dispute that's stuck in UNDER_REVIEW to waiting for the seller.
+app.post(
+  "/api/disputes/:id/require-evidence",
+  wrap(async (req, res) => {
+    if (!isSandboxCase(req.params.id)) return res.status(400).json({ error: "This only works on PayPal sandbox disputes." });
+    await paypal.requireEvidence(req.params.id, "SELLER_EVIDENCE");
+    res.json({ ok: true, dispute: await loadDispute(req.params.id) });
+  }),
+);
+
+// Records PayPal's ruling on a live dispute, if we were waiting for one.
+async function recordLiveRuling(id) {
+  const p = pendingFor(id);
+  if (!p) return;
+  const d = await paypal.getDispute(id);
+  // Compare with the amount when we responded: once a case settles, PayPal reports the refunded amount as the dispute amount.
+  const outcome = d.status === "RESOLVED" ? outcomeFromPayPal(d.outcome?.code, d.outcome?.refunded, p.amount) : null;
+  if (outcome) applyOutcome(recordOutcome(id, outcome, { refunded: d.outcome?.refunded }));
+}
+
+// Records rulings for answered cases that PayPal now shows as resolved.
+async function syncResolved(disputes) {
+  if (!live()) return;
+  const due = disputes.filter((d) => d.status === "RESOLVED" && !d.id.startsWith("PP-D-SIM-") && pendingFor(d.id));
+  await Promise.all(due.map((d) => recordLiveRuling(d.id).catch((err) => console.error(`Outcome sync for ${d.id} failed:`, err.message))));
+}
+
+// Live mode: catch rulings we missed (for example when no webhook is set up).
+async function syncLiveOutcomes() {
+  if (!live()) return;
+  for (const id of pendingIds()) {
+    if (id.startsWith("PP-D-SIM-") || pendingFor(id)?.simulated) continue;
+    await recordLiveRuling(id).catch((err) => console.error(`Outcome sync for ${id} failed:`, err.message));
+  }
+}
+
+app.get(
+  "/api/track-record",
+  wrap(async (req, res) => {
+    await syncLiveOutcomes();
+    res.json(trackRecord());
+  }),
+);
+
 // ---- autopilot ----
 app.get("/api/autopilot", (req, res) => res.json({ rules }));
 app.post("/api/autopilot", (req, res) => {
@@ -333,6 +514,10 @@ app.post(
     const disputeId = req.body?.resource?.dispute_id;
     if (req.body.event_type === "CUSTOMER.DISPUTE.CREATED" && disputeId) {
       handleIncoming(disputeId, "PayPal webhook").catch((err) => publish({ type: "autopilot_error", disputeId, message: err.message }));
+    }
+    // PayPal ruled: record the outcome so the agent learns from it.
+    if (req.body.event_type === "CUSTOMER.DISPUTE.RESOLVED" && disputeId) {
+      recordLiveRuling(disputeId).catch((err) => console.error(`Outcome for ${disputeId} failed:`, err.message));
     }
   }),
 );
@@ -405,6 +590,11 @@ const copilotCtx = {
       recentActions: activity.slice(0, 5),
       autopilot: rules,
       riskRadar: riskStats(),
+      trackRecord: (({ resolved, planSuccess, fightWinRate, brier, lessons, pending }) => ({
+        resolved, planSuccess, fightWinRate, predictionError: brier,
+        lessons: lessons.slice(0, 3).map((l) => l.text),
+        awaitingRuling: pending.length,
+      }))(trackRecord()),
     };
   },
   orders: () => listOrders().map(({ id, buyerName, total, items, status, risk }) => ({ id, buyerName, total, item: items[0]?.name, status, risk: risk && { score: risk.score, level: risk.level, action: risk.action } })),

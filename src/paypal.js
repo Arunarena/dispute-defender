@@ -79,6 +79,9 @@ export function normalizeDispute(d) {
     })),
     allowedResponses: d.allowed_response_options ?? null,
     evidences: d.evidences ?? [],
+    outcome: d.dispute_outcome
+      ? { code: d.dispute_outcome.outcome_code, refunded: d.dispute_outcome.amount_refunded?.value ?? null }
+      : null,
   };
 }
 
@@ -138,6 +141,18 @@ export function acceptClaim(id, note) {
   return call("POST", `/v1/customer/disputes/${encodeURIComponent(id)}/accept-claim`, {
     json: { note },
   });
+}
+
+// ---------- Sandbox-only controls (PayPal rejects these on live accounts) ----------
+
+// Moves a dispute from UNDER_REVIEW to waiting for the seller's (or buyer's) response.
+export function requireEvidence(id, action = "SELLER_EVIDENCE") {
+  return call("POST", `/v1/customer/disputes/${encodeURIComponent(id)}/require-evidence`, { json: { action } });
+}
+
+// Makes PayPal rule on a dispute. outcome: "SELLER_FAVOR" or "BUYER_FAVOR".
+export function adjudicate(id, outcome) {
+  return call("POST", `/v1/customer/disputes/${encodeURIComponent(id)}/adjudicate`, { json: { adjudication_outcome: outcome } });
 }
 
 // ---------- Orders (demo shop checkout) ----------

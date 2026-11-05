@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#05080f" />
+    <title>Dispute Defender</title>
+    <link rel="stylesheet" href="app.css" />
+    <!-- Offline demo: the engine copied from src/ imports Node modules; these point them at small stand-ins. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "fs": "./offline/shims/fs.js",
+          "path": "./offline/shims/path.js",
+          "events": "./offline/shims/events.js",
+          "zod": "./offline/shims/zod.js",
+          "./offline/engine/claude.js": "./offline/shims/claude.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <header class="bar">
+      <button class="icon back hidden" id="back" aria-label="Back">‹</button>
+      <div class="brand" id="title"><span class="shield">🛡️</span> Dispute Defender</div>
+      <span class="conn" id="conn" title="Connection to your server">●</span>
+    </header>
+
+    <main id="main"></main>
+
+    <nav class="tabs" id="tabs">
+      <button data-tab="home" class="active"><span>⚔️</span>Disputes</button>
+      <button data-tab="track"><span>🧠</span>Track Record</button>
+      <button data-tab="settings"><span>⚙️</span>Settings</button>
+    </nav>
+
+    <div class="sheet hidden" id="sheet"><div class="sheet-box" id="sheet-box"></div></div>
+    <div class="toasts" id="toasts"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

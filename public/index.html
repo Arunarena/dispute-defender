@@ -27,6 +27,7 @@
         <button class="tab active" data-view="disputes">⚔️ Disputes</button>
         <button class="tab" data-view="radar">🛰️ Risk Radar</button>
         <button class="tab" data-view="insights">📊 Insights</button>
+        <button class="tab" data-view="track">🧠 Track Record</button>
       </nav>
       <div class="modes" id="modes"></div>
       <button class="sim-btn" id="simulate" title="Simulates PayPal sending a CUSTOMER.DISPUTE.CREATED webhook">📡 Simulate dispute</button>
@@ -43,6 +44,10 @@
           <h2><span class="dot live"></span> INCOMING DISPUTES</h2>
           <button class="icon-btn" id="refresh" title="Refresh">⟳</button>
         </div>
+        <form class="case-open hidden" id="case-open" title="New sandbox disputes can take a while to reach PayPal's list. Paste the case ID to open it now.">
+          <input id="case-id" placeholder="Open case ID, e.g. PP-R-ABC-12345678" autocomplete="off" spellcheck="false" />
+          <button class="icon-btn" type="submit">OPEN</button>
+        </form>
         <div id="dispute-list" class="dispute-list"><p class="muted">Scanning…</p></div>
         <div class="autopilot" id="autopilot">
           <div class="ap-head">
@@ -79,6 +84,9 @@
 
     <!-- Insights: where disputes cost money -->
     <div class="view hidden" id="view-insights"></div>
+
+    <!-- Track Record: predictions vs. PayPal's rulings, and what the agent learned -->
+    <div class="view hidden" id="view-track"></div>
 
     <!-- Copilot -->
     <button class="copilot-orb" id="copilot-orb" title="Ask Defender (Ctrl+K)"><span class="orb-core">🛡️</span><span class="orb-label">Ask Defender <kbd>Ctrl K</kbd></span></button>
