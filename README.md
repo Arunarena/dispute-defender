@@ -33,7 +33,9 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 11. **📊 Insights:** an AI "profit leak" report over 90 days of dispute history, with charts. The numbers are computed in code and the AI only interprets them. It shows where money is lost (root cause, product, week) and the fixes worth the most per month.
 12. **🧠 Track Record (outcome learning):** every plan the agent sends is remembered until PayPal rules on it (`CUSTOMER.DISPUTE.RESOLVED` webhook, or **⚖️ Simulate PayPal ruling** in demo mode). Results from similar past cases then calibrate the win odds on new disputes, and Autopilot uses the calibrated odds. For example, "delivered" tracking with no photo or signature used to get 78% odds but won only 42% of the time, so a new case like that drops to 54% and waits for approval instead of being fought automatically. The Track Record screen shows the agent's accuracy, a calibration chart and the lessons it learned. All the numbers are computed in code.
 13. **📲 NFC Tap-to-Confirm packages:** every box that ships gets a ~$0.20 NFC sticker holding a signed link to that order. When the buyer's phone touches the box (iPhone or Android, no app needed), the tap is logged with the time and device, and the buyer can confirm arrival or report a problem with a photo and GPS. Problems reach the seller *before* they become PayPal disputes. If a "never arrived" dispute comes in anyway, the agent finds the tap and cites it. In the demo, the headphones tag was tapped in Portland 2.5 hours after USPS marked it delivered. The tap goes into the evidence PDF too. Sellers write tags from Chrome on Android (Web NFC) or with any NFC writer app.
-14. **🔌 Integrations hub:** one screen shows every outside API the app talks to, whether it's live or in demo mode, which key turns it on, and a log of every call. Most are off until you add a key. In demo mode the app logs the call it would have made. See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+14. **🔐 Passkey approval:** register Face ID, Touch ID, Windows Hello or a phone fingerprint, and every response to PayPal and every refund asks for it first (WebAuthn). Approval tokens are single-use, last two minutes and are tied to one action. In live mode one passkey protects every approval. In demo mode only the browser that registered is asked, so a shared demo never locks visitors out.
+15. **📱 Installable on any device (PWA):** install the dashboard on iPhone, Android, Windows or Mac, with its own icon, window and shortcuts (Disputes, Risk Radar, Integrations). The app opens offline, and dispute data always loads live.
+16. **🔌 Integrations hub:** one screen shows every outside API the app talks to, whether it's live or in demo mode, which key turns it on, and a log of every call. Most are off until you add a key. In demo mode the app logs the call it would have made. See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
     - **PayPal Add Tracking API:** shipping an order from Risk Radar puts the tracking number on the PayPal transaction. The buyer sees it in PayPal, and Seller Protection asks for it on "not received" claims.
     - **PayPal refunds (Payments v2):** **💸 Cancel & refund** on a risky order refunds it before it can become a chargeback, which avoids the chargeback fee and a mark on your dispute rate.
     - **PayPal Transaction Search:** a new agent tool checks the buyer's real PayPal history with your store (payments, refunds, chargebacks).
@@ -42,7 +44,7 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
     - **Google Address Validation:** Risk Radar flags mail-drop addresses (USPS CMRA), undeliverable addresses and business addresses.
     - **Slack, Discord and Zapier / Make / n8n:** alerts for new disputes, cases needing approval, Autopilot actions, PayPal rulings, high-risk orders and deadlines. The automation webhook is signed with HMAC-SHA256.
     - **Deadline calendar:** an iCal feed of response deadlines with a reminder a day before, for Google Calendar, Outlook or Apple Calendar.
-15. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them.
+17. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them.
 
 ### Demo scenarios (included)
 
@@ -67,6 +69,23 @@ npm start
 ```
 
 Open **http://localhost:3000**. With no keys set, the app runs in **demo mode**: built-in sample disputes, and a scripted agent in place of Claude. Both are labeled in the header.
+
+### Try each feature
+
+| Feature | Where | Notes |
+|---|---|---|
+| AI investigation | Click a dispute → **⚡ Deploy AI agent** → **Approve** | Start with the headphones case |
+| Negotiation | Mug set dispute → **🤝 Negotiation arena** | Inquiry-stage cases only |
+| Autopilot | Turn on the **🤖 Autopilot** switch, then click **📡 Simulate dispute** | |
+| NFC Tap-to-Confirm | Headphones dispute → **PACKAGE TAG · NFC**, or Risk Radar → **📦 Ship** an order → **👆 Simulate buyer tap** | The buyer page opens in a new tab. Confirm, or report a problem, and watch the dashboard react |
+| Passkey approval | **🔌 Integrations** → **🔐 Register a passkey on this device**, then approve any dispute | Works on `localhost` with Windows Hello, Touch ID or a phone (Chrome, Edge, Safari) |
+| Install as an app | **⬇ Install app** in the header (Chrome/Edge), or the install icon in the address bar | iPhone: open the hosted URL in Safari → Share → Add to Home Screen |
+| Risk Radar, Insights, Track Record | The tabs at the top | |
+| Copilot | **Ctrl+K**, or the 🛡️ button | Try "brief me" |
+
+**On a phone (real NFC stickers, iPhone install, phone passkeys):** a phone can't open `localhost`, so use the hosted Render URL (see [Deploy to Render](#deploy-to-render-hosted-demo)).
+- **Write a sticker:** open the URL in **Chrome on Android**, go to Risk Radar, ship an order, tap **✍️ Write NFC tag** and hold a blank NTAG213/215 sticker to the back of the phone.
+- **Tap it:** use any iPhone or Android phone.
 
 ### Turn on real PayPal + real AI
 
@@ -157,6 +176,9 @@ Browser (public/)                 Node/Express (src/server.js)
 | [src/address.js](src/address.js) | Google Address Validation for Risk Radar |
 | [src/notify.js](src/notify.js) | Slack, Discord and signed automation-webhook alerts |
 | [src/calendar.js](src/calendar.js) | iCal feed of dispute deadlines |
+| [src/passkeys.js](src/passkeys.js) | Passkey registration, approval and one-time approval tokens (SimpleWebAuthn) |
+| [public/passkey.js](public/passkey.js) | Browser side of passkeys: create, sign, retry the approved request |
+| [public/sw.js](public/sw.js), [public/manifest.webmanifest](public/manifest.webmanifest) | Installable app: service worker and manifest |
 | [src/nfc.js](src/nfc.js) | NFC Tap-to-Confirm: signed tag links, tap recording, evidence for the agent |
 | [public/tap.html](public/tap.html) | The page a buyer's phone opens when it taps the box |
 | [public/nfc.js](public/nfc.js) | Seller-side tag writing (Web NFC) and tap timeline |
@@ -174,7 +196,7 @@ Browser (public/)                 Node/Express (src/server.js)
 - **Copilot:** a Claude agent with read-only data tools plus "action" tools that drive the UI. Voice uses the browser's speech recognition and speech synthesis.
 - **Outcome learning:** after the agent files its recommendation, the server sorts the case into a pattern (for example "not received, delivered with signature") and blends the agent's win odds with the results of similar past cases. The more past cases there are, the more weight they get. On the sample history this lowers prediction error (Brier score) by about 12%, measured leave-one-out so each case is graded without its own result.
 - **Risk Radar and Insights:** structured-output calls. Risk returns a score, level, action and signed signals. Insights interprets aggregates that the code has already computed, so it can't invent numbers.
-- **Safety:** every tool the agent can call is read-only. Money only moves after a person approves. Server-side refusal fallbacks are enabled (`fallbacks: "default"`).
+- **Safety:** every tool the agent can call is read-only. Money only moves after a person approves, and with a passkey registered that approval needs a fingerprint, face or PIN. Server-side refusal fallbacks are enabled (`fallbacks: "default"`).
 - **Demo mode** uses a scripted rules engine ([src/scripted.js](src/scripted.js)) so judges can click through without an API key. The header shows which engine is active.
 
 ### PayPal technologies used

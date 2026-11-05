@@ -43,6 +43,11 @@ In demo mode, **👆 Simulate buyer tap** opens the same buyer page.
 
 **Limits:** a plain NTAG213 stores a fixed link, so a copied link could be replayed, and the agent is told to treat a tap as strong but not cryptographic proof. For production, **NTAG 424 DNA** tags with SUN messages add a fresh AES-CMAC signature and counter to every tap. Verifying those server-side is the next step.
 
+### Passkey approval and the installable app
+
+- **Passkeys (WebAuthn, via `@simplewebauthn/server`).** Register on the Integrations tab. Approving a dispute response (`POST /api/disputes/:id/respond`) or a refund (Risk Radar **Cancel & refund**) then returns `401 { passkey: "required", action }`. The dashboard asks for the passkey, gets a one-time token valid for two minutes and tied to that action, and retries. Adding or removing passkeys needs an existing passkey. Passkeys are bound to the host name, so a passkey made on `localhost` won't work on your Render URL, and the other way round.
+- **PWA.** `manifest.webmanifest` and `sw.js` make the dashboard installable. The service worker loads from the network first and caches the app shell for offline use. It never caches `/api`, `/t` or `/uploads`.
+
 ### Alerts and automation
 
 | Channel | Key | Notes |

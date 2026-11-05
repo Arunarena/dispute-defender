@@ -535,7 +535,7 @@ window.addEventListener("dd-event", (e) => {
 
 // ================= INTEGRATIONS =================
 const intg = { built: false, data: null, flash: new Set() };
-const GROUP_ICON = { PayPal: "🏦", "Evidence & fraud signals": "🔎", "Alerts & automation": "📣" };
+const GROUP_ICON = { PayPal: "🏦", "Evidence & fraud signals": "🔎", "Security & devices": "🔐", "Alerts & automation": "📣" };
 
 function buildIntegrationsShell() {
   $("#view-integrations").innerHTML = `<div class="view-pad">
@@ -560,10 +560,14 @@ function renderIntegrations() {
       <p>${esc(i.what)}</p>
       ${i.missing.length ? `<div class="ig-env">Set ${i.missing.map((k) => `<code>${esc(k)}</code>`).join(" ")}</div>` : ""}
       ${i.id === "calendar" ? `<div class="ig-env"><input readonly value="${esc(calendarUrl)}" onclick="this.select()" /> <a class="mini-btn" href="/api/calendar.ics?download=1">⬇ .ics</a></div>` : ""}
+      ${i.id === "passkey" ? `<div class="ig-env" id="pk-box">checking…</div>` : ""}
+      ${i.id === "pwa" ? `<div class="ig-env" id="pwa-box">${pwaStatus()}</div>` : ""}
       ${i.id === "paypal_webhooks" ? `<div class="ig-env">Webhook URL: <code>${esc(webhookUrl)}</code></div>` : ""}
       <div class="ig-foot"><span class="muted">${i.calls} call${i.calls === 1 ? "" : "s"}</span>${i.testable && i.live ? `<button class="mini-btn" data-test="${i.id}">▶ SEND TEST</button>` : ""}</div>
     </div>`).join("")}</div>`).join("");
   document.querySelectorAll("[data-test]").forEach((b) => (b.onclick = () => testChannel(b)));
+  drawPasskey();
+  bindPwa();
   $("#ig-log").innerHTML = calls.length
     ? calls.map((c) => `<li class="${c.ok ? (c.simulated ? "sim" : "ok") : "bad"} ${intg.flash.has(c.seq) ? "new" : ""}"><span class="t">${new Date(c.time).toLocaleTimeString()}</span> <b>${esc(integrations.find((i) => i.id === c.id)?.name ?? c.id)}</b> <span class="tag">${c.ok ? (c.simulated ? "DEMO" : "OK") : "FAIL"}${c.ms != null ? ` · ${c.ms}ms` : ""}</span><div class="a">${esc(c.action)}</div><div class="d">${esc(c.detail)}</div></li>`).join("")
     : `<li class="muted">No outside calls yet. Ship or cancel an order in Risk Radar, investigate a dispute, or download the calendar.</li>`;
@@ -605,3 +609,74 @@ window.addEventListener("dd-event", (e) => {
   const el = document.getElementById("rr-tag");
   if (el && el.dataset.tag === ev.tagId) loadRadarTag(ev.tagId);
 });
+
+// ================= PASSKEY APPROVAL =================
+async function drawPasskey() {
+  const el = $("#pk-box");
+  if (!el) return;
+  const pk = window.Passkey;
+  if (!pk?.supported()) { el.innerHTML = "This browser can't use passkeys."; return; }
+  const st = await DD().api("/api/passkeys");
+  const list = st.credentials.map((c) => `<code>${esc(c.label)}</code>`).join(" ");
+  el.innerHTML = st.thisDevice
+    ? `<span>✅ <b>On for this device.</b> Every response to PayPal and every refund asks for your passkey. ${list}</span><button class="mini-btn" id="pk-add">＋ ADD ANOTHER</button><button class="mini-btn" id="pk-off">REMOVE ALL</button>`
+    : `<span>${st.credentials.length ? `Registered: ${list}. ` : ""}${st.required ? "Approvals need a passkey." : "Approvals don't need a passkey yet."}</span><button class="mini-btn" id="pk-add">🔐 REGISTER A PASSKEY ON THIS DEVICE</button>`;
+  const name = () => (/iPhone|iPad/.test(navigator.userAgent) ? "iPhone" : /Android/.test(navigator.userAgent) ? "Android phone" : /Mac/.test(navigator.userAgent) ? "Mac" : /Windows/.test(navigator.userAgent) ? "Windows PC" : "This device");
+  $("#pk-add").onclick = async () => {
+    try {
+      const out = await pk.register(name());
+      DD().toast("🔐 PASSKEY REGISTERED", `${out.label}: approvals now need your fingerprint, face or PIN.`, "good");
+    } catch (err) {
+      DD().toast("PASSKEY NOT REGISTERED", err.name === "NotAllowedError" ? "Cancelled." : err.message, "warn");
+    }
+    loadIntegrations();
+  };
+  if ($("#pk-off")) $("#pk-off").onclick = async () => {
+    try {
+      await pk.removeAll();
+      DD().toast("PASSKEYS REMOVED", "Approvals no longer need a passkey.", "");
+    } catch (err) {
+      DD().toast("NOT REMOVED", err.name === "NotAllowedError" ? "Cancelled." : err.message, "warn");
+    }
+    loadIntegrations();
+  };
+}
+
+// ================= INSTALLABLE APP (PWA) =================
+let installPrompt = null;
+const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+function pwaStatus() {
+  if (standalone()) return "✅ <b>Running as an installed app.</b>";
+  if (installPrompt) return `<button class="mini-btn" id="pwa-install">⬇ INSTALL THIS APP</button>`;
+  if (/iPhone|iPad/.test(navigator.userAgent)) return "On iPhone: tap <b>Share</b>, then <b>Add to Home Screen</b>.";
+  return "Chrome / Edge: use the install icon in the address bar. Safari on Mac: File → Add to Dock.";
+}
+async function install() {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  const { outcome } = await installPrompt.userChoice;
+  installPrompt = null;
+  $("#install").classList.add("hidden");
+  if (outcome === "accepted") DD().toast("⬇ INSTALLED", "Dispute Defender is now an app on this device.", "good");
+  if (intg.built) renderIntegrations();
+}
+function bindPwa() {
+  const b = $("#pwa-install");
+  if (b) b.onclick = install;
+}
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  $("#install").classList.remove("hidden");
+  if (intg.built && current === "integrations") renderIntegrations();
+});
+$("#install").onclick = install;
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+
+// Open a screen from the URL, e.g. the app shortcuts: /?view=radar
+{
+  const v = new URLSearchParams(location.search).get("view");
+  if (["radar", "insights", "track", "integrations"].includes(v)) {
+    const wait = setInterval(() => { if (window.DD?.showView) { clearInterval(wait); showView(v); } }, 50);
+  }
+}

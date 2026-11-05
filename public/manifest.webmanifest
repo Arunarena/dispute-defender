@@ -1,0 +1,23 @@
+{
+  "name": "Dispute Defender",
+  "short_name": "Defender",
+  "description": "AI dispute command center for PayPal sellers",
+  "id": "/",
+  "start_url": "/?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#050914",
+  "theme_color": "#050914",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    { "src": "/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/img/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/img/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Disputes", "url": "/?view=disputes", "icons": [{ "src": "/img/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Risk Radar", "url": "/?view=radar", "icons": [{ "src": "/img/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Integrations", "url": "/?view=integrations", "icons": [{ "src": "/img/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

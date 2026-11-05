@@ -47,9 +47,24 @@ const isDone = (s) => ["RESOLVED", "UNDER_REVIEW", "WAITING_FOR_BUYER_RESPONSE"]
 
 let state = { disputes: [], activity: [], selected: null, config: {}, current: null, stats: {}, apStatus: {}, fresh: new Set() };
 
-async function api(path, opts) {
-  const res = await fetch(path, opts);
-  const data = await res.json();
+async function api(path, opts = {}) {
+  const headers = { ...(opts.headers ?? {}), ...(window.Passkey?.headers() ?? {}) };
+  let res = await fetch(path, { ...opts, headers });
+  let data = await res.json();
+  // Money moves only after a passkey check: ask for it, then send the same request once more.
+  if (res.status === 401 && data.passkey === "required" && window.Passkey) {
+    const label = data.label ?? "Approve this action";
+    toast("🔐 CONFIRM WITH YOUR PASSKEY", label, "");
+    let token;
+    try {
+      token = await window.Passkey.approve(data.action);
+    } catch (err) {
+      throw new Error(err.name === "NotAllowedError" ? "Passkey check cancelled. Nothing was sent." : err.message);
+    }
+    res = await fetch(path, { ...opts, headers: { ...headers, "X-Approval-Token": token } });
+    data = await res.json();
+    if (res.ok) toast("🔐 PASSKEY VERIFIED", label, "good");
+  }
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
 }

@@ -7,6 +7,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
     <link rel="icon" href="/img/shield.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#050914" />
+    <link rel="apple-touch-icon" href="/img/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Defender" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -33,6 +39,7 @@
       <div class="modes" id="modes"></div>
       <button class="sim-btn" id="simulate" title="Simulates PayPal sending a CUSTOMER.DISPUTE.CREATED webhook">📡 Simulate dispute</button>
       <div class="clock" id="clock">--:--:--</div>
+      <button class="sim-btn install-btn hidden" id="install" title="Install Dispute Defender as an app">⬇ Install app</button>
       <a class="shop-link" href="/shop.html">🛍️ Demo shop</a>
     </header>
 
@@ -190,6 +197,7 @@
       </div>
     </div>
 
+    <script src="/passkey.js" type="module"></script>
     <script src="/nfc.js" type="module"></script>
     <script src="/app.js" type="module"></script>
     <script src="/views.js" type="module"></script>

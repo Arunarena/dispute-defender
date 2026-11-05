@@ -1,6 +1,7 @@
 // Integration hub: which outside services are switched on, plus a log of every call
 // the app makes to them (live or simulated). The Integrations screen reads this.
 import { bus } from "./autopilot.js";
+import { credentialCount } from "./passkeys.js";
 
 const has = (...keys) => keys.every((k) => Boolean(process.env[k]));
 
@@ -28,6 +29,11 @@ export const CATALOG = [
     what: "Each shipped box gets a signed NFC sticker. A buyer's phone tap is logged as proof the package arrived, and they can confirm or report a problem, no app needed. Write tags from Chrome on Android (Web NFC) or any NFC writer app." },
   { id: "claude", group: "Evidence & fraud signals", name: "Claude API", env: ["ANTHROPIC_API_KEY"], live: () => has("ANTHROPIC_API_KEY") || has("ANTHROPIC_AUTH_TOKEN"),
     what: "The investigating agent, photo vision, negotiation, Risk Radar scoring, Insights and Copilot." },
+  // ---- Security & devices ----
+  { id: "passkey", group: "Security & devices", name: "Passkey approval (WebAuthn)", env: [], live: () => credentialCount() > 0,
+    what: "Face ID, Touch ID, Windows Hello or a fingerprint must confirm every response to PayPal and every refund. Nothing to phish: the passkey never leaves your device." },
+  { id: "pwa", group: "Security & devices", name: "Installable app (PWA)", env: [], live: () => true,
+    what: "Install the dashboard on iPhone, Android, Windows or Mac, with its own icon and window. It opens offline too, though live dispute data needs a connection." },
   // ---- Alerts & automation ----
   { id: "slack", group: "Alerts & automation", name: "Slack", env: ["SLACK_WEBHOOK_URL"], live: () => has("SLACK_WEBHOOK_URL"), testable: true,
     what: "New disputes, cases that need approval, Autopilot actions, PayPal rulings, high-risk orders and deadline reminders, posted to a channel." },

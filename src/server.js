@@ -19,9 +19,12 @@ import { buildCalendar } from "./calendar.js";
 import { shippoTestMode } from "./carriers.js";
 import { createTag, markWritten, verifyToken, recordTap, deviceLabel, tagUrl, tagEvidence, listTags } from "./nfc.js";
 import { findTag, findTagsFor } from "./store.js";
+import * as passkeys from "./passkeys.js";
 import { calibrate, casePattern, notePrediction, pendingFor, pendingIds, outcomeFor, recordOutcome, outcomeFromPayPal, trackRecord } from "./outcomes.js";
 
 const app = express();
+// Behind Render's proxy: trust X-Forwarded-Proto/Host so passkeys see the real https origin.
+app.set("trust proxy", true);
 app.use(express.json({ limit: "8mb" }));
 
 // Let the Android companion app (a Capacitor WebView at http://localhost) call the API.
@@ -307,6 +310,8 @@ app.post(
   "/api/disputes/:id/respond",
   wrap(async (req, res) => {
     const dispute = await loadDispute(req.params.id);
+    const verdict = req.body.verdict ?? recommendations.get(dispute.id)?.verdict ?? "response";
+    if (!requireApproval(req, res, `respond:${dispute.id}`, `${{ FIGHT: "Submit evidence", OFFER_PARTIAL_REFUND: "Send refund offer", ACCEPT_CLAIM: "Accept claim and refund", SEND_MESSAGE: "Send reply" }[verdict] ?? "Respond"} on ${dispute.id} ($${Number(dispute.amount.value).toFixed(2)})`)) return;
     const rec = { ...(recommendations.get(dispute.id) ?? {}), ...req.body };
     if (!rec.verdict) return res.status(400).json({ error: "Run the analysis first." });
     res.json({ ok: true, ...(await executeAction(dispute, rec, { source: "MANUAL" })) });
@@ -596,6 +601,7 @@ app.post(
     const existing = getOrder(req.params.id);
     // A held order can still be shipped or cancelled. Shipped and cancelled orders are final.
     if (existing && ["SHIPPED", "CANCELLED"].includes(existing.status)) return res.status(409).json({ error: `Order is already ${existing.status.toLowerCase()}` });
+    if (req.body.decision === "CANCEL" && !requireApproval(req, res, `refund:${req.params.id}`, `Refund order ${req.params.id}${existing ? ` ($${existing.total})` : ""}`)) return;
     const order = decideOrder(req.params.id, req.body.decision);
     const integration =
       order.status === "SHIPPED" ? await pushTracking(order)
@@ -756,6 +762,65 @@ async function checkDeadlines() {
     publish({ type: "deadline", disputeId: d.id, hoursLeft, amount: d.amount, buyerName: d.buyerName, item: d.item });
   }
 }
+
+// ---------- Passkey approval (WebAuthn) ----------
+const pkCtx = (req) => ({ liveMode: live(), holder: req.get("x-passkey-holder") || null });
+// The page's origin as the browser sees it. Passkeys are bound to this host name.
+const rp = (req) => ({
+  rpID: req.hostname,
+  origins: [...new Set([`${req.protocol}://${req.get("host")}`, `https://${req.get("host")}`, process.env.PUBLIC_URL, process.env.RENDER_EXTERNAL_URL].filter(Boolean).map((o) => o.replace(/\/$/, "")))],
+});
+
+// True if the request may go ahead. Otherwise answers 401 so the dashboard asks for the passkey and retries.
+function requireApproval(req, res, action, label) {
+  if (!passkeys.isRequired(pkCtx(req))) return true;
+  if (passkeys.consumeApproval(req.get("x-approval-token"), action)) {
+    logCall("passkey", "approved", { detail: label });
+    return true;
+  }
+  res.status(401).json({ error: "Approve this with your passkey. (On the phone app, approve it on the dashboard instead.)", passkey: "required", action, label });
+  return false;
+}
+
+app.get("/api/passkeys", (req, res) => res.json(passkeys.status(pkCtx(req))));
+
+app.post(
+  "/api/passkeys/register/start",
+  wrap(async (req, res) => {
+    // Adding another passkey needs one you already have.
+    if (!requireApproval(req, res, "passkey:add", "Add a new passkey")) return;
+    res.json(await passkeys.startRegistration({ rpID: rp(req).rpID, label: req.body.label }));
+  }),
+);
+app.post(
+  "/api/passkeys/register/finish",
+  wrap(async (req, res) => {
+    const out = await passkeys.finishRegistration({ ...req.body, ...rp(req) });
+    logCall("passkey", "registered", { detail: `${out.label} on ${req.hostname}` });
+    res.json(out);
+  }),
+);
+app.post(
+  "/api/passkeys/approve/start",
+  wrap(async (req, res) => {
+    res.json(await passkeys.startApproval({ rpID: rp(req).rpID, action: String(req.body.action ?? ""), ...pkCtx(req) }));
+  }),
+);
+app.post(
+  "/api/passkeys/approve/finish",
+  wrap(async (req, res) => {
+    res.json(await passkeys.finishApproval({ ...req.body, ...rp(req) }));
+  }),
+);
+app.post(
+  "/api/passkeys/remove",
+  wrap(async (req, res) => {
+    if (!requireApproval(req, res, "passkey:remove", "Remove all passkeys")) return;
+    passkeys.removeAll();
+    logCall("passkey", "removed all", { detail: "Approvals no longer need a passkey" });
+    res.json(passkeys.status(pkCtx(req)));
+  }),
+);
 
 // ---------- Tap-to-Confirm (NFC package tags) ----------
 const STORE_NAME = "Juniper & Co.";
