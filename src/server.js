@@ -663,9 +663,63 @@ app.post(
   }),
 );
 
+// ---------------- PayPal watcher ----------------
+// Without a public webhook URL, the server checks PayPal every few seconds and pushes
+// changes to the dashboard and phone: new messages, status changes, accepted offers, rulings.
+// Set PAYPAL_POLL_SECONDS=0 to turn it off.
+const POLL_MS = Number(process.env.PAYPAL_POLL_SECONDS ?? 5) * 1000;
+const lastSeen = new Map(); // dispute id -> "status|message count|outcome"
+let watcherPrimed = false;
+const snapshot = (d) => `${d.status}|${d.messages?.length ?? 0}|${d.outcome?.code ?? ""}`;
+
+async function watchPayPal() {
+  const listed = await paypal.listDisputes();
+  const ids = new Set([...listed.map((d) => d.id), ...knownIds, ...pendingIds()].filter((id) => !id.startsWith("PP-D-SIM-")));
+  for (const id of ids) {
+    const prev = lastSeen.get(id);
+    if (prev?.startsWith("RESOLVED|") && !pendingFor(id)) continue; // closed and already recorded
+    let d;
+    try {
+      d = await paypal.getDispute(id);
+    } catch {
+      continue;
+    }
+    const now = snapshot(d);
+    lastSeen.set(id, now);
+    if (d.status === "RESOLVED" && pendingFor(id)) await recordLiveRuling(id); // publishes "outcome"
+    if (!watcherPrimed) continue; // first pass only learns the current state
+    if (prev === undefined) {
+      // A case we haven't seen before. With a webhook set up, the webhook handles it instead.
+      if (!process.env.PAYPAL_WEBHOOK_ID) await handleIncoming(id, "PayPal").catch((err) => publish({ type: "autopilot_error", disputeId: id, message: err.message }));
+    } else if (prev !== now) {
+      const newMessages = (d.messages?.length ?? 0) - Number(prev.split("|")[1]);
+      const last = d.messages?.at(-1);
+      publish({
+        type: "dispute_update",
+        disputeId: id,
+        status: d.status,
+        statusChanged: prev.split("|")[0] !== d.status,
+        message: newMessages > 0 && last ? { by: last.by, content: last.content } : null,
+      });
+    }
+  }
+  watcherPrimed = true;
+}
+
+function startWatcher() {
+  if (!live() || POLL_MS <= 0) return;
+  console.log(`  Watch:  checking PayPal every ${POLL_MS / 1000}s for changes`);
+  const tick = async () => {
+    await watchPayPal().catch((err) => console.error("PayPal watcher:", err.message));
+    setTimeout(tick, POLL_MS);
+  };
+  tick();
+}
+
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => {
   console.log(`\nDispute Defender running at http://localhost:${PORT}`);
   console.log(`  PayPal: ${live() ? "sandbox (live API)" : "demo data (add PAYPAL_CLIENT_ID/SECRET to .env for sandbox)"}`);
   console.log(`  AI:     ${claudeConfigured() ? `Claude ${MODEL}` : "scripted demo (add ANTHROPIC_API_KEY to .env for Claude)"}\n`);
+  startWatcher();
 });

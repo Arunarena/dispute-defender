@@ -996,6 +996,22 @@ function connectEvents() {
         if (state.current?.dispute.id === ev.entry.disputeId && !state.current.outcome) await refreshRuling(ev.entry.disputeId);
         break;
       }
+      case "dispute_update": {
+        // The PayPal watcher saw a change: a buyer message, a status change, an accepted offer.
+        const who = { BUYER: "Buyer", SELLER: "You" }[ev.message?.by] ?? "PayPal";
+        const what = ev.message ? `${who}: ${ev.message.content}` : `Status: ${ev.status.replaceAll("_", " ")}`;
+        if (ev.message?.by !== "SELLER") toast(`📬 CASE UPDATED · ${ev.disputeId}`, what.slice(0, 160), "");
+        feed(`↻ ${ev.disputeId}: ${what.slice(0, 60)}`);
+        await loadList();
+        if (state.selected === ev.disputeId) {
+          const fresh = await api(`/api/disputes/${encodeURIComponent(ev.disputeId)}`).catch(() => null);
+          if (fresh && state.selected === ev.disputeId) {
+            state.current = fresh;
+            renderDetail();
+          }
+        }
+        break;
+      }
       case "autopilot_error":
         setAp(ev.disputeId, `error: ${ev.message}`);
         feed(`✗ ${ev.disputeId}: ${ev.message}`, "bad");

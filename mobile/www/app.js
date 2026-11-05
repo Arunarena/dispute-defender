@@ -541,6 +541,11 @@
         case "action":
           if (ev.entry.source === "AUTOPILOT") notify(`🤖 Autopilot · ${VERDICTS[ev.entry.verdict]?.label}`, `${id}: ${ev.entry.rule}`, id);
           break;
+        case "dispute_update": {
+          const who = { BUYER: "Buyer", SELLER: "You" }[ev.message?.by] ?? "PayPal";
+          if (ev.message?.by !== "SELLER") notify(`📬 Case updated · ${id}`, ev.message ? `${who}: ${ev.message.content}` : `Status: ${ev.status.replaceAll("_", " ")}`, id);
+          break;
+        }
         case "outcome":
           notify(`⚖️ PayPal ruled · ${OUTCOMES[ev.entry.outcome].label}`, `${ev.entry.item ?? id}: kept ${usd(ev.entry.kept)} (predicted ${ev.entry.odds}%)`, id);
           break;
