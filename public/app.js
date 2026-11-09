@@ -7,6 +7,10 @@ const REASONS = {
   MERCHANDISE_OR_SERVICE_NOT_RECEIVED: ["NOT RECEIVED", "inr"],
   MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED: ["NOT AS DESCRIBED", "snad"],
   UNAUTHORISED: ["UNAUTHORIZED", "unauth"],
+  CREDIT_NOT_PROCESSED: ["REFUND NOT RECEIVED", "cnp"],
+  DUPLICATE_TRANSACTION: ["DUPLICATE CHARGE", "dup"],
+  INCORRECT_AMOUNT: ["WRONG AMOUNT", "dup"],
+  CANCELED_RECURRING_BILLING: ["SUBSCRIPTION CANCELLED", "cnp"],
 };
 const VERDICTS = {
   FIGHT: { label: "FIGHT", action: "SUBMIT EVIDENCE", api: "provide-evidence", color: "#2bffb1" },
@@ -33,7 +37,12 @@ const imgFor = (name = "") => {
   if (n.includes("headphone")) return "/img/headphones.svg";
   if (n.includes("mug")) return "/img/mug.svg";
   if (n.includes("watch")) return "/img/watch.svg";
+  if (n.includes("backpack")) return "/img/backpack.svg";
   if (n.includes("tote") || n.includes("bag")) return "/img/tote.svg";
+  if (n.includes("blanket") || n.includes("throw")) return "/img/blanket.svg";
+  if (n.includes("coffee") || n.includes("brew")) return "/img/coffee.svg";
+  if (n.includes("speaker") || n.includes("boombox")) return "/img/speaker.svg";
+  if (n.includes("cutting board") || n.includes("bamboo")) return "/img/board.svg";
   return "/img/box.svg";
 };
 const initials = (name = "?") => name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
@@ -138,7 +147,7 @@ function renderStats() {
 
 function renderList() {
   if (!state.disputes.length) {
-    $("#dispute-list").innerHTML = `<p class="muted">No disputes. 🎉<br/><br/>Sandbox mode: buy something in the <a href="/shop.html">demo shop</a> with a sandbox buyer, then open a dispute from that buyer's account.</p>`;
+    $("#dispute-list").innerHTML = `<p class="muted">No disputes. 🎉<br/><br/>Sandbox mode: buy something in the <a href="/shop.html" target="dd-shop">demo shop</a> with a sandbox buyer, then open a dispute from that buyer's account.</p>`;
     return;
   }
   $("#dispute-list").innerHTML = state.disputes

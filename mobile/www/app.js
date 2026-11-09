@@ -18,6 +18,8 @@
     MERCHANDISE_OR_SERVICE_NOT_RECEIVED: ["NOT RECEIVED", "inr"],
     MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED: ["NOT AS DESCRIBED", "snad"],
     UNAUTHORISED: ["UNAUTHORIZED", "unauth"],
+    CREDIT_NOT_PROCESSED: ["REFUND NOT RECEIVED", "cnp"],
+    DUPLICATE_TRANSACTION: ["DUPLICATE CHARGE", "dup"],
   };
   const VERDICTS = {
     FIGHT: { label: "FIGHT", action: "Submit evidence", color: "#2bffb1" },

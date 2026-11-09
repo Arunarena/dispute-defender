@@ -5,8 +5,9 @@
   window.DD_STATIC_DEMO = true;
   const BASE = location.pathname.replace(/[^/]*$/, ""); // e.g. /dispute-defender/
   const here = location.pathname.slice(BASE.length) || "index.html";
-  // The buyer's tap page opens in its own tab: it asks the dashboard tab's server first, so the tap shows up there.
-  const RELAY_FIRST = here === "tap.html";
+  // The buyer's tap page and the demo shop open in their own tabs: they ask the dashboard tab's server first,
+  // so a tap or a shop order shows up there.
+  const RELAY_FIRST = here === "tap.html" || here === "shop.html";
   const channel = "BroadcastChannel" in window ? new BroadcastChannel("dd-static-demo") : null;
 
   let backendPromise = null;

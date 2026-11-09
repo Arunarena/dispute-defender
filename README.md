@@ -6,6 +6,8 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 
 > Built for the *Build What's Next with PayPal and AI* hackathon.
 
+**▶ Try it now: [arunarena.github.io/dispute-defender](https://arunarena.github.io/dispute-defender/)**. It runs in any browser with nothing to install, and a 🎬 guided tour opens on the first visit.
+
 ---
 
 ## What it does
@@ -44,7 +46,8 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
     - **Google Address Validation:** Risk Radar flags mail-drop addresses (USPS CMRA), undeliverable addresses and business addresses.
     - **Slack, Discord and Zapier / Make / n8n:** alerts for new disputes, cases needing approval, Autopilot actions, PayPal rulings, high-risk orders and deadlines. The automation webhook is signed with HMAC-SHA256.
     - **Deadline calendar:** an iCal feed of response deadlines with a reminder a day before, for Google Calendar, Outlook or Apple Calendar.
-17. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them.
+17. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them. Without keys, its demo checkout lets you buy any of the 6 products as a regular or a risky customer and watch Risk Radar score the order live.
+18. **Guided tour:** the 🎬 Tour button walks through the best moments in about 3 minutes, one click per step.
 
 ### Demo scenarios (included)
 
@@ -54,6 +57,11 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 | Mug set, "one arrived chipped", $64 | 1 of 4 damaged, policy says refund that item's share, loyal customer | **Offer $16**, keep $48 |
 | Smartwatch, "unauthorized", $289.99 | Freight forwarder, billing ≠ shipping, 1-day-old account, foreign IP | **Accept**: it's fraud and can't be won |
 | Tote bags, "where is it?", $42.50 | Delayed by weather, now at the local post office | **Reply** with tracking, no refund |
+| Wool blanket, "refund never came", $98 | The return arrived and refund REF-6K2208 went out 9 days ago | **Fight** with proof of refund, ~93% |
+| Coffee maker, "charged twice", $39.99 | Two identical payments 41 seconds apart, one shipment | **Refund it**: a real duplicate you'd lose |
+| Backpack, "I don't recognize this", $149 | Billing = shipping, signed for by the account holder, 7 orders over 4 years, buyer tapped the NFC tag and pressed "Arrived OK" | **Fight**: friendly fraud |
+
+**📡 Simulate dispute** adds 6 more cases on rotation (speaker, napkins, gaming headset, headphones, cutting board, blanket), each with its own order, tracking and buyer history.
 
 ---
 
@@ -78,12 +86,14 @@ Open **http://localhost:3000**. With no keys set, the app runs in **demo mode**:
 
 | Feature | Where | Notes |
 |---|---|---|
+| Guided tour | **🎬 Tour** in the header (opens by itself on the first visit) | One click per feature |
 | AI investigation | Click a dispute → **⚡ Deploy AI agent** → **Approve** | Start with the headphones case |
 | Negotiation | Mug set dispute → **🤝 Negotiation arena** | Inquiry-stage cases only |
 | Autopilot | Turn on the **🤖 Autopilot** switch, then click **📡 Simulate dispute** | |
 | NFC Tap-to-Confirm | Headphones dispute → **PACKAGE TAG · NFC**, or Risk Radar → **📦 Ship** an order → **👆 Simulate buyer tap** | The buyer page opens in a new tab. Confirm, or report a problem, and watch the dashboard react |
 | Passkey approval | **🔌 Integrations** → **🔐 Register a passkey on this device**, then approve any dispute | Works on `localhost` with Windows Hello, Touch ID or a phone (Chrome, Edge, Safari) |
 | Install as an app | **⬇ Install app** in the header (Chrome/Edge), or the install icon in the address bar | iPhone: open the hosted URL in Safari → Share → Add to Home Screen |
+| Demo shop | **🛍️ Demo shop** → **Buy as regular customer** or **Buy as risky buyer** | The dashboard tab switches to Risk Radar and scores the order live |
 | Risk Radar, Insights, Track Record | The tabs at the top | |
 | Copilot | **Ctrl+K**, or the 🛡️ button | Try "brief me" |
 
@@ -201,6 +211,8 @@ Browser (public/)                 Node/Express (src/server.js)
 | [src/demoData.js](src/demoData.js) | Sample disputes and store data |
 | [src/server.js](src/server.js) | HTTP API and streaming of agent progress |
 | [public/](public/) | Dashboard and demo shop UI |
+| [public/tour.js](public/tour.js) | Guided tour for first-time visitors and judges |
+| [scripts/build-pages.mjs](scripts/build-pages.mjs), [pages/](pages/) | GitHub Pages build: the server bundled to run in the browser |
 
 ### AI tools used
 

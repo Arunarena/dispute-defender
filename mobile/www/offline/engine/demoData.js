@@ -95,6 +95,52 @@ export const demoDisputes = [
       },
     ],
   },
+  {
+    // "Refund not received", but the store's records show the refund went out a week ago.
+    id: "PP-D-DEMO-1005",
+    reason: "CREDIT_NOT_PROCESSED",
+    status: "WAITING_FOR_SELLER_RESPONSE",
+    stage: "CHARGEBACK",
+    amount: { value: "98.00", currency: "USD" },
+    created: daysAgo(2),
+    sellerResponseDue: daysFromNow(8),
+    buyerName: "Olivia Chen",
+    transactionId: "6PL20977RS3344120",
+    items: [{ name: "Merino Wool Throw Blanket", quantity: 1 }],
+    messages: [
+      { by: "BUYER", time: daysAgo(2), content: "I sent the blanket back two weeks ago and still haven't been refunded. Filing with my bank." },
+    ],
+  },
+  {
+    // A real double charge: the honest move is to refund it, not fight.
+    id: "PP-D-DEMO-1006",
+    reason: "DUPLICATE_TRANSACTION",
+    status: "WAITING_FOR_SELLER_RESPONSE",
+    stage: "INQUIRY",
+    amount: { value: "39.99", currency: "USD" },
+    created: daysAgo(1),
+    sellerResponseDue: daysFromNow(12),
+    buyerName: "Marco Rossi",
+    transactionId: "1RT55021ZX6677881",
+    items: [{ name: "Cold Brew Coffee Maker", quantity: 1 }],
+    messages: [
+      { by: "BUYER", time: daysAgo(1), content: "I was charged twice for the same coffee maker. I only ordered one. Please refund the extra charge." },
+    ],
+  },
+  {
+    // "Unauthorized", but every fact points to the account holder: friendly fraud.
+    id: "PP-D-DEMO-1007",
+    reason: "UNAUTHORISED",
+    status: "WAITING_FOR_SELLER_RESPONSE",
+    stage: "CHARGEBACK",
+    amount: { value: "149.00", currency: "USD" },
+    created: daysAgo(1),
+    sellerResponseDue: daysFromNow(9),
+    buyerName: "Rachel Kim",
+    transactionId: "8WV31088TU5566342",
+    items: [{ name: "Trailblazer Hiking Backpack 40L", quantity: 1 }],
+    messages: [{ by: "BUYER", time: daysAgo(1), content: "I don't recognize this charge on my account." }],
+  },
 ];
 
 // The merchant's own order system, keyed by PayPal transaction (capture) ID.
@@ -417,3 +463,155 @@ export const demoNfcTags = [
     taps: [],
   },
 ];
+
+// ---- more cases: refund already issued, a real double charge, friendly fraud ----
+Object.assign(demoOrders, {
+  "6PL20977RS3344120": {
+    orderId: "SHOP-20488",
+    placed: daysAgo(30),
+    customerEmail: "olivia.chen@example.com",
+    shippingAddress: "260 Maple Ave, Evanston, IL 60201, US",
+    billingAddress: "260 Maple Ave, Evanston, IL 60201, US",
+    items: [{ name: "Merino Wool Throw Blanket", sku: "MRN-THROW", price: "98.00" }],
+    shipping: { carrier: "USPS", trackingNumber: "9400111202555842720018", shipped: daysAgo(29) },
+    returnShipment: { carrier: "USPS", trackingNumber: "9400111202555842733334", received: daysAgo(10) },
+    refund: { id: "REF-6K2208", amount: "98.00", issued: daysAgo(9), method: "Full refund to the original PayPal payment", paypalStatus: "COMPLETED" },
+    ipCountry: "US",
+  },
+  "1RT55021ZX6677881": {
+    orderId: "SHOP-20640",
+    placed: daysAgo(3),
+    customerEmail: "marco.rossi@example.com",
+    shippingAddress: "14 Harbor St, Providence, RI 02903, US",
+    billingAddress: "14 Harbor St, Providence, RI 02903, US",
+    items: [{ name: "Cold Brew Coffee Maker", sku: "BREW-1L", price: "39.99" }],
+    shipping: { carrier: "UPS", trackingNumber: "1Z999AA10155501234", shipped: daysAgo(2) },
+    duplicateCapture: { transactionId: "1RT55021ZX6677882", amount: "39.99", capturedSecondsLater: 41, shipped: false, note: "Checkout button clicked twice; the second payment has no order or shipment" },
+    ipCountry: "US",
+  },
+  "8WV31088TU5566342": {
+    orderId: "SHOP-20618",
+    placed: daysAgo(12),
+    customerEmail: "rachel.kim@example.com",
+    shippingAddress: "88 Summit Rd, Boulder, CO 80302, US",
+    billingAddress: "88 Summit Rd, Boulder, CO 80302, US",
+    items: [{ name: "Trailblazer Hiking Backpack 40L", sku: "TRL-40", price: "149.00" }],
+    shipping: { carrier: "FEDEX", trackingNumber: "794644790255", shipped: daysAgo(11) },
+    ipCountry: "US",
+    deviceMatch: "Same device and IP as the buyer's 6 earlier orders",
+  },
+});
+
+Object.assign(demoTracking, {
+  "9400111202555842720018": {
+    status: "DELIVERED",
+    events: [
+      { time: daysAgo(29), location: "Asheville, NC", detail: "Accepted at USPS origin facility" },
+      { time: daysAgo(26), location: "Evanston, IL 60201", detail: "Delivered, front door" },
+    ],
+  },
+  "9400111202555842733334": {
+    status: "DELIVERED",
+    events: [
+      { time: daysAgo(14), location: "Evanston, IL", detail: "Return accepted at post office" },
+      { time: daysAgo(10), location: "Asheville, NC 28801", detail: "Return delivered to the store's warehouse" },
+    ],
+  },
+  "1Z999AA10155501234": {
+    status: "IN_TRANSIT",
+    events: [
+      { time: daysAgo(2), location: "Asheville, NC", detail: "Picked up by UPS" },
+      { time: daysAgo(1), location: "Hartford, CT", detail: "Arrived at facility" },
+    ],
+  },
+  "794644790255": {
+    status: "DELIVERED",
+    events: [
+      { time: daysAgo(11), location: "Asheville, NC", detail: "Picked up" },
+      { time: daysAgo(8), location: "Boulder, CO 80302", detail: "Delivered, front door. Signed by: RACHEL KIM" },
+    ],
+  },
+});
+
+Object.assign(demoCustomers, {
+  "olivia.chen@example.com": {
+    accountAgeDays: 800, orders: 5, totalSpent: "344.00", priorDisputes: 0, notes: "Returned the blanket within 30 days; refund REF-6K2208 sent the day after it arrived.",
+  },
+  "marco.rossi@example.com": {
+    accountAgeDays: 220, orders: 2, totalSpent: "79.98", priorDisputes: 0, notes: "Two identical payments 41 seconds apart on this order.",
+  },
+  "rachel.kim@example.com": {
+    accountAgeDays: 1510, orders: 7, totalSpent: "868.00", priorDisputes: 0, notes: "Six earlier orders to the same address, all delivered without issue. Left a 5-star review on a past order.",
+  },
+});
+
+// The backpack's tag: the buyer tapped it and pressed "Arrived OK" two days after delivery.
+demoNfcTags.push({
+  id: "tg-tr20618",
+  transactionId: "8WV31088TU5566342",
+  label: { buyerName: "Rachel Kim", items: ["Trailblazer Hiking Backpack 40L"], total: "149.00" },
+  createdAt: daysAgo(11),
+  writtenAt: daysAgo(11),
+  taps: [
+    { time: daysAgo(6), kind: "OPEN", device: "Android · Chrome", place: "Boulder, CO (network location)" },
+    { time: daysAgo(6), kind: "CONFIRM_OK", device: "Android · Chrome", location: { lat: 40.01499, lon: -105.27055, accuracy: 18 } },
+  ],
+});
+
+incomingTemplates.push(
+  {
+    // The return arrived but nobody sent the refund: the agent says pay it.
+    reason: "CREDIT_NOT_PROCESSED",
+    stage: "INQUIRY",
+    amount: { value: "34.00", currency: "USD" },
+    buyerName: "Nina Alvarez",
+    transactionId: "3KM40122VW7788231",
+    items: [{ name: "Bamboo Cutting Board Set", quantity: 1 }],
+    message: "You received my return 10 days ago according to tracking. Where is my refund?",
+  },
+  {
+    reason: "UNAUTHORISED",
+    stage: "CHARGEBACK",
+    amount: { value: "98.00", currency: "USD" },
+    buyerName: "Chris Doyle",
+    transactionId: "5NB60344XY9900453",
+    items: [{ name: "Merino Wool Throw Blanket", quantity: 1 }],
+    message: "Unauthorized transaction.",
+  },
+);
+
+Object.assign(demoOrders, {
+  "3KM40122VW7788231": {
+    orderId: "SHOP-20655",
+    placed: daysAgo(25),
+    customerEmail: "nina.alvarez@example.com",
+    shippingAddress: "5 Grove St, Savannah, GA 31401, US",
+    billingAddress: "5 Grove St, Savannah, GA 31401, US",
+    items: [{ name: "Bamboo Cutting Board Set", sku: "BMB-3", price: "34.00" }],
+    shipping: { carrier: "USPS", trackingNumber: "9400111202555842744445", shipped: daysAgo(24) },
+    returnShipment: { carrier: "USPS", trackingNumber: "9400111202555842755556", received: daysAgo(10) },
+    refund: null,
+    ipCountry: "US",
+  },
+  "5NB60344XY9900453": {
+    orderId: "SHOP-20661",
+    placed: daysAgo(15),
+    customerEmail: "chris.doyle@example.com",
+    shippingAddress: "31 Pearl St, Burlington, VT 05401, US",
+    billingAddress: "31 Pearl St, Burlington, VT 05401, US",
+    items: [{ name: "Merino Wool Throw Blanket", sku: "MRN-THROW", price: "98.00" }],
+    shipping: { carrier: "UPS", trackingNumber: "1Z999AA10166602345", shipped: daysAgo(14) },
+    ipCountry: "US",
+  },
+});
+
+Object.assign(demoTracking, {
+  "9400111202555842744445": { status: "DELIVERED", events: [{ time: daysAgo(24), location: "Asheville, NC", detail: "Accepted at USPS origin facility" }, { time: daysAgo(21), location: "Savannah, GA 31401", detail: "Delivered, in mailbox" }] },
+  "9400111202555842755556": { status: "DELIVERED", events: [{ time: daysAgo(13), location: "Savannah, GA", detail: "Return accepted at post office" }, { time: daysAgo(10), location: "Asheville, NC 28801", detail: "Return delivered to the store's warehouse" }] },
+  "1Z999AA10166602345": { status: "DELIVERED", events: [{ time: daysAgo(14), location: "Asheville, NC", detail: "Picked up by UPS" }, { time: daysAgo(11), location: "Burlington, VT 05401", detail: "Delivered, front porch. Signed by: CHRIS DOYLE" }] },
+});
+
+Object.assign(demoCustomers, {
+  "nina.alvarez@example.com": { accountAgeDays: 400, orders: 2, totalSpent: "71.00", priorDisputes: 0, notes: "Return logged as received; no refund recorded yet." },
+  "chris.doyle@example.com": { accountAgeDays: 1100, orders: 4, totalSpent: "312.00", priorDisputes: 1, notes: "Same address on all 4 orders. One earlier 'unauthorized' claim in 2025, later withdrawn." },
+});

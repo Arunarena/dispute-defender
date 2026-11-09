@@ -107,6 +107,8 @@ code { font-family: var(--mono); }
 .pill.inr { color: var(--amber); background: rgba(255,181,71,.07); }
 .pill.snad { color: var(--violet); background: rgba(155,123,255,.08); }
 .pill.unauth { color: var(--red); background: rgba(255,77,109,.08); }
+.pill.cnp { color: var(--green); background: rgba(43,255,177,.07); }
+.pill.dup { color: var(--cyan); background: rgba(0,229,255,.07); }
 .pill.stage { color: var(--muted); background: transparent; }
 .pill.status-done { color: var(--green); background: rgba(43,255,177,.07); }
 
@@ -722,3 +724,25 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius
 .nfc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .nfc-actions .mini-btn { text-decoration: none; }
 .nfc-note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+/* ---------- demo shop checkout ---------- */
+.demo-buy { display: flex; flex-direction: column; gap: 8px; }
+.demo-buy .mini-btn.risky { border-color: var(--red); color: var(--red); background: rgba(255,77,109,.08); }
+.demo-buy .mini-btn.risky:hover { background: rgba(255,77,109,.18); }
+
+/* ---------- guided tour ---------- */
+.tour-btn { border-color: var(--violet); color: var(--violet); }
+.tour { position: fixed; left: 20px; bottom: 20px; z-index: 45; width: 360px; max-height: min(72vh, 720px); display: flex; flex-direction: column;
+  background: rgba(6, 11, 24, .96); border: 1px solid rgba(155, 123, 255, .45); border-radius: 16px; box-shadow: 0 18px 60px rgba(0,0,0,.6), 0 0 30px rgba(155,123,255,.15); animation: fadein .2s; }
+.tour-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(155,123,255,.25); font-family: var(--mono); font-size: 12px; letter-spacing: .08em; color: var(--violet); }
+.tour-head span { margin-left: auto; color: var(--muted); }
+.tour-intro { margin: 0; padding: 10px 14px 4px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+.tour-steps { list-style: none; margin: 0; padding: 6px 8px; overflow-y: auto; }
+.tour-steps li button { display: flex; gap: 10px; width: 100%; text-align: left; background: transparent; border: 1px solid transparent; border-radius: 10px; padding: 9px 8px; color: var(--ink); cursor: pointer; font: inherit; }
+.tour-steps li button:hover { background: rgba(155,123,255,.08); border-color: rgba(155,123,255,.3); }
+.tour-steps b { display: block; font-size: 13px; }
+.tour-steps small { display: block; font-size: 11.5px; color: var(--muted); line-height: 1.4; margin-top: 3px; }
+.tour-n { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 11px; border: 1px solid var(--violet); color: var(--violet); }
+.tour-steps li.done .tour-n { background: var(--green); border-color: var(--green); color: #04130c; font-weight: 800; }
+.tour-foot { display: flex; gap: 8px; justify-content: space-between; padding: 10px 14px; border-top: 1px solid rgba(155,123,255,.2); }
+@media (max-width: 700px) { .tour { left: 8px; right: 8px; width: auto; bottom: 8px; } }

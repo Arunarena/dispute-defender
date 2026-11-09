@@ -65,6 +65,13 @@ export async function scriptedRecommendation(d, emit) {
       rec.win_likelihood = Math.min(97, rec.win_likelihood + 6);
       if (rec.response_text) rec.response_text += ` In addition, the NFC tag sealed inside the package was tapped by a phone on ${new Date(tapAfterDelivery.time).toDateString()}, ${hrs} hours after the carrier's delivery scan, which shows the package was physically received.`;
     }
+    const confirmed = tag?.taps.find((x) => x.kind === "CONFIRM_OK");
+    if (confirmed && d.reason !== "MERCHANDISE_OR_SERVICE_NOT_RECEIVED" && rec.verdict === "FIGHT") {
+      rec.reasoning.push(`The buyer tapped the NFC tag in the box and pressed "Arrived OK" on ${new Date(confirmed.time).toDateString()} (${confirmed.device}${confirmed.location ? ", with GPS at the delivery address" : ""}).`);
+      rec.evidence.push({ evidence_type: "PROOF_OF_FULFILLMENT", title: "Buyer confirmed delivery by NFC tap", detail: `Tag ${tag.id}: "Arrived OK" pressed ${new Date(confirmed.time).toUTCString()} on ${confirmed.device}` });
+      rec.win_likelihood = Math.min(97, rec.win_likelihood + 6);
+      if (rec.response_text) rec.response_text += ` The buyer also confirmed receipt themselves: they tapped the NFC tag inside the package and pressed "Arrived OK" on ${new Date(confirmed.time).toDateString()}.`;
+    }
     const problem = tag?.taps.find((x) => x.kind === "PROBLEM");
     if (problem) rec.risk_flags.push(`Buyer reported a problem when tapping the package: "${problem.note ?? "no details"}"`);
     for (const p of sellerPhotos) {
@@ -107,6 +114,96 @@ export async function scriptedRecommendation(d, emit) {
         response_text: `We accept this claim. Our review of order ${order?.orderId ?? ""} found signs that the purchase was not made by the account holder, and we have blocked the shipping address used. We're sorry for the trouble this caused.`,
       });
     }
+  }
+
+  // Unauthorized, but the facts point to the account holder (friendly fraud).
+  if (d.reason === "UNAUTHORISED" && order) {
+    const signer = /signed by: ([a-z]+ [a-z]+)$/i.exec(lastEvent?.detail ?? "")?.[1];
+    const signedByBuyer = Boolean(signer && signer.toLowerCase() === d.buyerName.toLowerCase());
+    const history = (customer?.orders ?? 0) > 1 && (customer?.accountAgeDays ?? 0) > 180;
+    if (signedByBuyer || history) {
+      return withPhotos({
+        ...base,
+        verdict: "FIGHT",
+        win_likelihood: signedByBuyer && history ? 82 : 68,
+        headline: `Fight it. This looks like friendly fraud: the account holder's own details are all over this order.`,
+        reasoning: [
+          `Billing and shipping addresses match (${order.shippingAddress.split(",").slice(0, 2).join(",")}), and the order came from a US IP.`,
+          ...(signedByBuyer ? [`${order.shipping.carrier} delivery was signed by "${signer}", the account holder's own name.`] : []),
+          ...(history ? [`The buyer has ${customer.orders} orders over ${Math.max(1, Math.round(customer.accountAgeDays / 365))} years to this address.${customer.priorDisputes ? ` ${customer.priorDisputes} earlier claim(s) on record.` : ""}`] : []),
+          ...(order.deviceMatch ? [order.deviceMatch + "."] : []),
+        ],
+        risk_flags: customer?.priorDisputes ? [`Buyer filed ${customer.priorDisputes} earlier claim(s)`] : [],
+        evidence: [
+          { evidence_type: "PROOF_OF_FULFILLMENT", title: "Signed delivery to the account holder's address", detail: `${order.shipping.carrier} ${order.shipping.trackingNumber}: ${lastEvent?.detail ?? "delivered"}` },
+          { evidence_type: "OTHER", title: "Purchase history", detail: `${customer?.orders ?? 1} orders to ${order.shippingAddress}; billing address matches` },
+        ],
+        primary_evidence_type: "PROOF_OF_FULFILLMENT",
+        money_saved_estimate: amount.toFixed(2),
+        response_text: `This purchase was made by the account holder. Order ${order.orderId} shipped to ${order.shippingAddress}, the same as the billing address on file${history ? ` and the address used on ${customer.orders - 1} earlier orders from this buyer` : ""}. ${order.shipping.carrier} tracking ${order.shipping.trackingNumber} shows: "${lastEvent?.detail ?? "delivered"}". We ask that this claim be decided in the seller's favor.`,
+      });
+    }
+  }
+
+  // Refund not received: check the store's refund and return records.
+  if (d.reason === "CREDIT_NOT_PROCESSED" && order) {
+    const ret = order.returnShipment;
+    if (order.refund?.issued) {
+      return withPhotos({
+        ...base,
+        verdict: "FIGHT",
+        win_likelihood: 93,
+        headline: `Fight it. You already refunded ${order.refund.amount} ${cur} on ${new Date(order.refund.issued).toDateString()}. This claim would make you pay twice.`,
+        reasoning: [
+          ...(ret ? [`Return tracking ${ret.trackingNumber} shows it reached your warehouse on ${new Date(ret.received).toDateString()}.`] : []),
+          `Refund ${order.refund.id} for the full ${order.refund.amount} ${cur} was issued on ${new Date(order.refund.issued).toDateString()}: ${order.refund.method}.`,
+          `PayPal refunds can take a few business days to show at the buyer's bank, which explains the confusion.`,
+        ],
+        evidence: [
+          { evidence_type: "PROOF_OF_REFUND", title: `Refund ${order.refund.id}`, detail: `${order.refund.amount} ${cur} issued ${new Date(order.refund.issued).toDateString()}, status ${order.refund.paypalStatus ?? "COMPLETED"}` },
+          ...(ret ? [{ evidence_type: "OTHER", title: "Return received", detail: `${ret.carrier} ${ret.trackingNumber} delivered to the store ${new Date(ret.received).toDateString()}` }] : []),
+        ],
+        tracking: ret ? { carrier: ret.carrier, tracking_number: ret.trackingNumber } : trk,
+        primary_evidence_type: "PROOF_OF_REFUND",
+        money_saved_estimate: amount.toFixed(2),
+        response_text: `${ret ? `We received the buyer's return on ${new Date(ret.received).toDateString()} and issued` : "We issued"} a full refund of ${order.refund.amount} ${cur} on ${new Date(order.refund.issued).toDateString()} (refund ID ${order.refund.id}, status ${order.refund.paypalStatus ?? "COMPLETED"}) to the original PayPal payment. The buyer has already been refunded, so a second refund is not due.`,
+      });
+    }
+    if (ret?.received) {
+      return withPhotos({
+        ...base,
+        verdict: "ACCEPT_CLAIM",
+        win_likelihood: 4,
+        headline: `Refund now. The return reached you on ${new Date(ret.received).toDateString()} and no refund was sent. The buyer is right.`,
+        reasoning: [
+          `Return tracking ${ret.trackingNumber} shows delivery to your warehouse.`,
+          `There is no refund on record for order ${order.orderId}.`,
+          `Your policy promises a refund for returned items. Fighting would lose and could add a chargeback fee.`,
+        ],
+        risk_flags: ["Refund overdue: check why this return wasn't processed"],
+        money_saved_estimate: "0.00",
+        response_text: `Hi ${d.buyerName.split(" ")[0]}, you're right, and we're sorry. Your return arrived on ${new Date(ret.received).toDateString()} and the refund was missed on our side. We've accepted your claim so the full amount goes back to you now.`,
+      });
+    }
+  }
+
+  // Duplicate charge: refund a real double payment.
+  if (d.reason === "DUPLICATE_TRANSACTION" && order?.duplicateCapture && !order.duplicateCapture.shipped) {
+    const dup = order.duplicateCapture;
+    return withPhotos({
+      ...base,
+      verdict: "ACCEPT_CLAIM",
+      win_likelihood: 3,
+      headline: `Refund it. Two identical payments ${dup.capturedSecondsLater} seconds apart, and only one box shipped. It's a real double charge.`,
+      reasoning: [
+        `Payments ${d.transactionId} and ${dup.transactionId} are both ${dup.amount} ${cur}, ${dup.capturedSecondsLater} seconds apart.`,
+        `Only one shipment exists (${order.shipping.carrier} ${order.shipping.trackingNumber}). ${dup.note}.`,
+        `Fighting a true duplicate loses and hurts your dispute ratio. Refunding the extra charge keeps a good customer.`,
+      ],
+      risk_flags: ["Checkout allowed a double submit: disable the pay button after one click"],
+      money_saved_estimate: "0.00",
+      response_text: `Hi ${d.buyerName.split(" ")[0]}, you're right: checkout charged you twice, ${dup.capturedSecondsLater} seconds apart. Your ${d.items[0]?.name ?? "order"} is on its way (${order.shipping.carrier} ${order.shipping.trackingNumber}), and we're refunding the extra ${dup.amount} ${cur} now. Sorry for the hassle!`,
+    });
   }
 
   // Item not received.

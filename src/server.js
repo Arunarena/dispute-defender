@@ -58,6 +58,9 @@ const SHOP_ITEMS = {
   "AUR-ANC-01": { name: "Aurora ANC Wireless Headphones", sku: "AUR-ANC-01", price: "129.00" },
   "MUG-SET-4": { name: "Handmade Ceramic Mug Set (4 mugs)", sku: "MUG-SET-4", price: "64.00" },
   "TOTE-2": { name: "Organic Cotton Tote Bag (2-pack)", sku: "TOTE-2", price: "42.50" },
+  "TRL-40": { name: "Trailblazer Hiking Backpack 40L", sku: "TRL-40", price: "149.00" },
+  "MRN-THROW": { name: "Merino Wool Throw Blanket", sku: "MRN-THROW", price: "98.00" },
+  "BREW-1L": { name: "Cold Brew Coffee Maker", sku: "BREW-1L", price: "39.99" },
 };
 
 const publish = (event) => bus.emit("event", { ...event, time: new Date().toISOString() });
@@ -898,6 +901,47 @@ app.post(
 
 // ---------- Demo shop: real sandbox checkout that feeds the order system ----------
 app.get("/api/shop/items", (req, res) => res.json({ items: Object.values(SHOP_ITEMS) }));
+
+// Demo mode (no PayPal keys): "buy" as a regular or a risky customer. The order goes to Risk Radar.
+const DEMO_BUYERS = {
+  good: [
+    { buyerName: "Ava Thompson", email: "ava.thompson@example.com", shippingAddress: "12 Orchard Ln, Madison, WI 53703, US" },
+    { buyerName: "Ben Carter", email: "ben.carter@example.com", shippingAddress: "301 River Rd, Raleigh, NC 27601, US" },
+    { buyerName: "Chloe Nguyen", email: "chloe.nguyen@example.com", shippingAddress: "88 Sunset Blvd, Phoenix, AZ 85004, US" },
+  ],
+  risky: [
+    { buyerName: "Alex Mercer", email: "am.deals.4471@example.net", shippingAddress: "Unit 31, 2100 NW 79th Ave (Freight Forwarder), Doral, FL 33122, US", billingAddress: "14 Elm St, Hartford, CT 06103, US", ipCountry: "RO" },
+    { buyerName: "Sam Rivers", email: "s.rivers.x9@example.net", shippingAddress: "Locker 1182, 50 Depot St (Parcel Locker), Reno, NV 89501, US", billingAddress: "77 Lake Shore Dr, Chicago, IL 60611, US", ipCountry: "VN" },
+  ],
+};
+let demoBuyerIdx = 0;
+app.post(
+  "/api/shop/demo-order",
+  wrap(async (req, res) => {
+    if (live()) return res.status(400).json({ error: "PayPal keys are set: use the PayPal checkout." });
+    const item = SHOP_ITEMS[req.body.sku];
+    if (!item) return res.status(400).json({ error: "Unknown item" });
+    const risky = req.body.profile === "risky";
+    const list = DEMO_BUYERS[risky ? "risky" : "good"];
+    const who = list[demoBuyerIdx++ % list.length];
+    const qty = risky ? 3 : 1;
+    const order = addOrder({
+      ...who,
+      billingAddress: who.billingAddress ?? who.shippingAddress,
+      items: [{ name: item.name, qty }],
+      total: (Number(item.price) * qty).toFixed(2),
+      ipCountry: who.ipCountry ?? "US",
+      billingCountry: "US",
+      accountAgeDays: risky ? 0 : 640,
+      priorOrders: risky ? 0 : 3,
+      priorDisputes: 0,
+      payerVerified: !risky,
+      shippingSpeed: risky ? "Overnight" : "Standard",
+    });
+    res.json({ ok: true, orderId: order.id, buyerName: order.buyerName, total: order.total });
+    handleNewOrder(order, "demo shop checkout").catch((err) => publish({ type: "autopilot_error", disputeId: order.id, message: err.message }));
+  }),
+);
 
 app.post(
   "/api/shop/orders",

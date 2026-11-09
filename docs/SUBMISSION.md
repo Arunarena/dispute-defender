@@ -27,6 +27,7 @@ Dispute Defender is an AI dispute analyst for PayPal sellers:
 - **Approves with a fingerprint, on any device.** With a passkey registered (Face ID, Touch ID, Windows Hello), every PayPal response and refund needs a biometric check, using single-use tokens tied to one action. The dashboard installs as an app on iPhone, Android, Windows and Mac.
 - **Connects to the tools sellers already use.** An Integrations hub shows each outside API, live or demo, with a call log. Shipping an order puts its tracking on the PayPal transaction (Add Tracking API). A risky order can be refunded before it becomes a chargeback (Payments API). The agent reads the buyer's real PayPal history (Transaction Search). Live carrier tracking comes from Shippo, address checks from Google, alerts go to Slack, Discord or Zapier, and deadlines go to the seller's calendar.
 - **Talks.** Defender Copilot answers by voice ("brief me", "fight the headphones dispute") and drives the app hands-free.
+- **Honest, not just aggressive.** It fights when the evidence is there (delivery proof, a refund already sent, friendly fraud signed for by the account holder) and tells the seller to refund when the buyer is right (a real double charge, a return that was never refunded, true fraud). Losing cases you can't win costs fees and hurts the seller's dispute ratio.
 - **Human in control.** The agent's tools are read-only. Money moves only after approval or under an explicit rule.
 
 ## How PayPal is used
@@ -47,7 +48,7 @@ Dispute Defender is an AI dispute analyst for PayPal sellers:
 - A rules-based stand-in agent lets the app run without an API key for quick evaluation. The app's header shows which engine is active.
 
 ## Try it
-- Live demo (full dashboard, any browser, no install): https://arunarena.github.io/dispute-defender/
+- Live demo (full dashboard, any browser, no install): https://arunarena.github.io/dispute-defender/ (a guided tour opens on the first visit; 7 sample disputes across 5 PayPal dispute reasons, 6 more via Simulate, and a demo shop with 6 products)
 - Phone app demo: https://arunarena.github.io/dispute-defender/mobile/
 - Node server running in the browser (Chrome/Edge desktop): https://stackblitz.com/github/Arunarena/dispute-defender
 - Code: https://github.com/Arunarena/dispute-defender. Runs with `npm install && npm start` and no keys needed (demo mode).

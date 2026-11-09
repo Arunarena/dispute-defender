@@ -25,9 +25,18 @@ const seedOrders = [
   { id: "ORD-30395", placed: hoursAgo(8), buyerName: "Amara Okafor", email: "amara.okafor@example.com", items: [{ name: "Organic Cotton Tote Bag (2-pack)", qty: 1 }], total: "42.50",
     shippingAddress: "3 Willow Way, Austin, TX 78704, US", billingAddress: "3 Willow Way, Austin, TX 78704, US",
     ipCountry: "US", billingCountry: "US", accountAgeDays: 1310, priorOrders: 9, priorDisputes: 0, payerVerified: true, shippingSpeed: "Standard" },
+  { id: "ORD-30391", placed: hoursAgo(9.5), buyerName: "Ethan Brooks", email: "ethan.b.2024@example.net", items: [{ name: "Trailblazer Hiking Backpack 40L", qty: 4 }], total: "596.00",
+    shippingAddress: "Locker 2219, 16 Commerce Way (Parcel Locker), Reno, NV 89502, US", billingAddress: "700 Hill St, Nashville, TN 37203, US",
+    ipCountry: "US", billingCountry: "US", accountAgeDays: 1, priorOrders: 0, priorDisputes: 0, payerVerified: false, shippingSpeed: "Overnight" },
+  { id: "ORD-30388", placed: hoursAgo(11), buyerName: "Maya Fischer", email: "maya.fischer@example.com", items: [{ name: "Merino Wool Throw Blanket", qty: 1 }, { name: "Cold Brew Coffee Maker", qty: 1 }], total: "137.99",
+    shippingAddress: "48 Spruce St, Burlington, VT 05401, US", billingAddress: "48 Spruce St, Burlington, VT 05401, US",
+    ipCountry: "US", billingCountry: "US", accountAgeDays: 960, priorOrders: 5, priorDisputes: 0, payerVerified: true, shippingSpeed: "Standard" },
 ];
 
 const incomingOrderTemplates = [
+  { buyerName: "Noah Bennett", email: "noah.bennett@example.com", items: [{ name: "Cold Brew Coffee Maker", qty: 1 }], total: "39.99",
+    shippingAddress: "9 Bay St, Charleston, SC 29401, US", billingAddress: "9 Bay St, Charleston, SC 29401, US",
+    ipCountry: "US", billingCountry: "US", accountAgeDays: 1500, priorOrders: 11, priorDisputes: 0, payerVerified: true, shippingSpeed: "Standard" },
   { buyerName: "Dmitri Volkov", email: "dv.shop.991@example.net", items: [{ name: "Nova Pro Gaming Headset", qty: 3 }], total: "657.00",
     shippingAddress: "Dock 7, 1 Cargo Plaza (Freight Forwarder), Elizabeth, NJ 07201, US", billingAddress: "12 Maple Dr, Dayton, OH 45402, US",
     ipCountry: "VN", billingCountry: "US", accountAgeDays: 0, priorOrders: 0, priorDisputes: 0, payerVerified: false, shippingSpeed: "Overnight" },
@@ -81,6 +90,7 @@ function scriptedRisk(o) {
   }
   if (/forward/i.test(o.shippingAddress)) add("Freight forwarder", 30, "Common way to move stolen goods overseas");
   if (/hotel/i.test(o.shippingAddress)) add("Hotel delivery", 14, "Temporary address, hard to verify receipt");
+  if (/locker/i.test(o.shippingAddress)) add("Parcel locker", 12, "Anonymous pickup point, no doorstep delivery to prove receipt");
   if (o.ipCountry !== o.billingCountry) add(`IP in ${o.ipCountry}`, 16, `Order placed from ${o.ipCountry} but card billing is in ${o.billingCountry}`);
   if (o.accountAgeDays < 7) add("Brand-new account", 18, `Account created ${o.accountAgeDays === 0 ? "today" : `${o.accountAgeDays} days ago`}`);
   if (!o.payerVerified) add("Unverified PayPal payer", 10, "PayPal reports the payer as unverified");

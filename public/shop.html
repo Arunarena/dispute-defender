@@ -11,8 +11,8 @@
   <body>
     <div class="grid-bg"></div>
     <header class="topbar">
-      <div class="brand"><span style="font-size:34px">🌿</span><div><h1>JUNIPER &amp; CO.</h1><p class="tagline">Demo store for creating real PayPal sandbox orders</p></div></div>
-      <a class="shop-link" href="/">← Back to command center</a>
+      <div class="brand"><span style="font-size:34px">🌿</span><div><h1>JUNIPER &amp; CO.</h1><p class="tagline">Demo store: every order is scored by Risk Radar before it ships</p></div></div>
+      <a class="shop-link" href="/">← Command center</a>
     </header>
     <div class="shop">
       <div id="banner"></div>
@@ -29,7 +29,7 @@
       </div>
     </div>
     <script type="module">
-      const img = { "AUR-ANC-01": "headphones", "MUG-SET-4": "mug", "TOTE-2": "tote" };
+      const img = { "AUR-ANC-01": "headphones", "MUG-SET-4": "mug", "TOTE-2": "tote", "TRL-40": "backpack", "MRN-THROW": "blanket", "BREW-1L": "coffee" };
       const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
       const config = await (await fetch("/api/config")).json();
       const { items } = await (await fetch("/api/shop/items")).json();
@@ -39,7 +39,24 @@
         .join("");
 
       if (!config.paypalClientId) {
-        document.getElementById("banner").innerHTML = `<div class="note">Checkout is off in demo mode. Add <code>PAYPAL_CLIENT_ID</code> and <code>PAYPAL_CLIENT_SECRET</code> (sandbox) to <code>.env</code> and restart to enable real PayPal sandbox checkout.</div>`;
+        // Demo checkout: no PayPal keys needed. The order appears in Risk Radar on the dashboard.
+        document.getElementById("banner").innerHTML = `<div class="note">Demo checkout: buy as a regular customer or as a risky buyer, then watch the order get scored in <b>Risk Radar</b> on the dashboard. With PayPal sandbox keys in <code>.env</code>, real PayPal checkout appears here instead.</div>`;
+        document.querySelector(".steps").classList.add("hidden");
+        for (const item of items) {
+          const slot = document.getElementById(`btn-${item.sku}`);
+          slot.innerHTML = `<div class="demo-buy"><button class="mini-btn" data-p="good">🛒 Buy as regular customer</button><button class="mini-btn risky" data-p="risky">🕵️ Buy as risky buyer</button></div>`;
+          slot.querySelectorAll("button").forEach((b) => {
+            b.onclick = async () => {
+              b.disabled = true;
+              const r = await fetch("/api/shop/demo-order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sku: item.sku, profile: b.dataset.p }) });
+              const data = await r.json();
+              b.disabled = false;
+              document.getElementById("result").innerHTML = r.ok
+                ? `<div class="done">✓ Order <code>${esc(data.orderId)}</code> placed by ${esc(data.buyerName)} ($${esc(data.total)}). Risk Radar on the dashboard tab is scoring it now. <a href="/?view=radar" target="_blank">No dashboard open? Open one →</a></div>`
+                : `<div class="error">${esc(data.error)}</div>`;
+            };
+          });
+        }
       } else {
         const s = document.createElement("script");
         s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(config.paypalClientId)}&currency=USD&intent=capture`;

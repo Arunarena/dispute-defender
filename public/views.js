@@ -10,7 +10,12 @@ const imgFor = (name = "") => {
   if (n.includes("headphone") || n.includes("headset")) return "/img/headphones.svg";
   if (n.includes("mug")) return "/img/mug.svg";
   if (n.includes("watch")) return "/img/watch.svg";
+  if (n.includes("backpack")) return "/img/backpack.svg";
   if (n.includes("tote") || n.includes("bag")) return "/img/tote.svg";
+  if (n.includes("blanket") || n.includes("throw")) return "/img/blanket.svg";
+  if (n.includes("coffee") || n.includes("brew")) return "/img/coffee.svg";
+  if (n.includes("speaker") || n.includes("boombox")) return "/img/speaker.svg";
+  if (n.includes("cutting board") || n.includes("bamboo")) return "/img/board.svg";
   return "/img/box.svg";
 };
 
@@ -233,6 +238,8 @@ window.addEventListener("dd-event", async (e) => {
     setTimeout(() => radar.fresh.delete(ev.order.id), 4000);
     DD().toast(`📦 NEW ORDER · ${ev.via}`, `${ev.order.buyerName}: ${ev.order.item} · ${usd(ev.order.total)}. Scanning…`, "alert");
     if (radar.built) await loadOrders();
+    // An order from the demo shop tab: show it arriving in Risk Radar.
+    if (ev.via === "demo shop checkout" && current !== "radar") showView("radar");
   }
   if (ev.type === "order_scored") {
     if (ev.order.level === "HIGH") DD().toast("🛑 HIGH-RISK ORDER", `${ev.order.buyerName} (${usd(ev.order.total)}) scored ${ev.order.score}. Hold before shipping.`, "warn");

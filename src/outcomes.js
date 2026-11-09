@@ -15,6 +15,10 @@ export const PATTERNS = {
   NAD_OTHER: "Not as described · other",
   UNAUTH_FRAUD: "Unauthorized · fraud signals",
   UNAUTH_CLEAN: "Unauthorized · clean order",
+  CNP_REFUNDED: "Refund not received · refund already sent",
+  CNP_OWED: "Refund not received · refund owed",
+  DUP_REAL: "Duplicate charge · real double payment",
+  DUP_DISTINCT: "Duplicate charge · separate orders",
   OTHER: "Other",
 };
 
@@ -46,6 +50,10 @@ export function casePattern(dispute, { order, tracking } = {}, photos = []) {
       if (order?.ipCountry && order.ipCountry !== "US") signals++;
       return signals >= 2 ? "UNAUTH_FRAUD" : "UNAUTH_CLEAN";
     }
+    case "CREDIT_NOT_PROCESSED":
+      return order?.refund?.issued ? "CNP_REFUNDED" : "CNP_OWED";
+    case "DUPLICATE_TRANSACTION":
+      return order?.duplicateCapture && !order.duplicateCapture.shipped ? "DUP_REAL" : "DUP_DISTINCT";
     default:
       return "OTHER";
   }

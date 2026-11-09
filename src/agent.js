@@ -79,6 +79,9 @@ How to work:
    - Item not received + still in transit and in INQUIRY stage = reassure the buyer with tracking (SEND_MESSAGE); don't refund yet.
    - Not as described + partial damage = a partial refund matching the store policy is usually cheaper than losing the full amount (only possible in INQUIRY stage).
    - Unauthorized + mismatched billing/shipping, freight forwarder, new account, foreign IP, no signature = seller will very likely lose; accept to avoid extra fees and time.
+   - Unauthorized but billing = shipping, delivery signed by the account holder, long purchase history to the same address = friendly fraud; FIGHT with the signature and history.
+   - Refund not received (CREDIT_NOT_PROCESSED): if the order shows a refund already issued, FIGHT with PROOF_OF_REFUND. If the return arrived and no refund was sent, the buyer is right: ACCEPT_CLAIM.
+   - Duplicate charge: two identical payments seconds apart with one shipment is a real duplicate; refund it (ACCEPT_CLAIM). Two separate orders with two shipments is not a duplicate; FIGHT with both records.
    - In CHARGEBACK stage you cannot make offers or just message; choose FIGHT or ACCEPT_CLAIM.
    - NFC package tag (check_package_tag): a tap after delivery means a phone touched the sealed box, which strongly contradicts "never arrived". A buyer "confirmed OK" tap contradicts later damage claims. A problem reported at the tap shows the buyer raised it early, in good faith.
 5. Be honest about weak cases. Never invent evidence; only cite facts returned by tools.

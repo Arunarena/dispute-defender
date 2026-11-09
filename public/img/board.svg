@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
+  <defs>
+    <linearGradient id="bdBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1e2414"/><stop offset="1" stop-color="#0c0f08"/></linearGradient>
+    <linearGradient id="bdWood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e3b874"/><stop offset="1" stop-color="#c08c45"/></linearGradient>
+  </defs>
+  <rect width="160" height="160" rx="24" fill="url(#bdBg)"/>
+  <ellipse cx="80" cy="134" rx="52" ry="6" fill="#000" opacity=".35"/>
+  <rect x="44" y="34" width="62" height="92" rx="12" fill="#a8743a" transform="rotate(-10 75 80)"/>
+  <rect x="52" y="40" width="64" height="92" rx="12" fill="url(#bdWood)"/>
+  <circle cx="84" cy="52" r="5" fill="#1e2414"/>
+  <path d="M62 70 v52 M74 66 v58 M86 66 v58 M98 66 v58 M108 70 v52" stroke="#b07a3a" stroke-width="2" opacity=".6"/>
+</svg>
