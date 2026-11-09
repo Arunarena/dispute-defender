@@ -571,6 +571,8 @@
   // ---------------- start ----------------
   (async () => {
     if (native) Plugins.LocalNotifications?.requestPermissions?.().catch(() => {});
+    // Hosted on GitHub Pages there is no server to connect to: open the in-browser demo straight away.
+    if (!state.server && !native && location.hostname.endsWith("github.io")) state.server = OFFLINE;
     if (isOffline()) await loadEngine().catch(() => { state.server = ""; });
     if (state.server) {
       api("/api/config", { timeout: 8000 }).then((c) => { state.config = c; setConn(true); }).catch(() => setConn(false));

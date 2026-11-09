@@ -59,7 +59,9 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 
 ## Quick start (2 minutes, no keys needed)
 
-**Fastest:** [open it in StackBlitz](https://stackblitz.com/github/Arunarena/dispute-defender). It runs in your browser with nothing to install (Chrome or Edge on desktop).
+**Instant, any browser or phone:** [arunarena.github.io/dispute-defender](https://arunarena.github.io/dispute-defender/) (the mobile app with its built-in demo engine; sample disputes, the scripted agent and Autopilot).
+
+**Full dashboard in your browser:** [open it in StackBlitz](https://stackblitz.com/github/Arunarena/dispute-defender). It runs in your browser with nothing to install (Chrome or Edge on desktop).
 
 Or run it locally. Requires **Node.js 20+**.
 
@@ -137,6 +139,8 @@ Restart with `npm start`. Both badges in the header should now show live mode.
 [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/Arunarena/dispute-defender)
 
 StackBlitz runs the Node server inside your browser tab (best in Chrome or Edge on a desktop). It installs, starts and opens the dashboard in demo mode, with no keys needed. The first load takes about a minute.
+
+**GitHub Pages:** <https://arunarena.github.io/dispute-defender/> opens instantly in any browser, phones included. It is the mobile app (`mobile/www`) running the demo engine in the page, with no server. [.github/workflows/pages.yml](.github/workflows/pages.yml) republishes it on every push to main. Integrations, NFC, passkeys and Risk Radar need the full server above.
 
 A [Dockerfile](deploy/huggingface/Dockerfile) that builds the app straight from this repo is also included for any Docker host.
 
