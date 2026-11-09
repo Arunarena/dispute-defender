@@ -35,8 +35,8 @@ function actions(tag, url, { localOnly = false } = {}) {
     <button class="mini-btn" data-nfc-copy="${esc(url)}">🔗 COPY LINK</button>
     <a class="mini-btn" href="${esc(url)}" target="_blank" rel="noopener" title="Opens the page a buyer's phone opens when it touches the box">👆 SIMULATE BUYER TAP</a>
   </div>
-  ${localOnly ? `<div class="nfc-note">This link points to localhost, so a phone can't open it. Use your Render URL (or set PUBLIC_URL) before writing real tags.</div>` : ""}
-  ${supported() ? "" : `<div class="nfc-note">To write stickers: open this dashboard in Chrome on Android, or paste the link into an NFC writer app. Any phone can read the tag.</div>`}`;
+  ${localOnly ? `<div class="nfc-note">Localhost link: phones can't open it.</div>` : ""}
+`;
 }
 
 async function write(btn, toast) {

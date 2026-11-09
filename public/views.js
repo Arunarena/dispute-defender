@@ -47,7 +47,7 @@ const radar = { orders: [], stats: {}, selected: null, scanning: false, fresh: n
 function buildRadarShell() {
   $("#view-radar").innerHTML = `<div class="view-pad">
     <div class="view-head">
-      <div class="grow"><h2>🛰️ RISK RADAR</h2><p>AI scores every new PayPal order for fraud and dispute risk <b>before you ship</b>. Hold the bad ones and the dispute never happens.</p></div>
+      <div class="grow"><h2>🛰️ RISK RADAR</h2></div>
       <button class="sim-btn" id="rr-sim">📦 Simulate new order</button>
       <button class="cta" id="rr-scan">⚡ SCAN ALL ORDERS</button>
     </div>
@@ -148,14 +148,14 @@ function drawDetail() {
       <div class="score ${r.level}" style="min-width:90px"><b style="font-size:34px">${r.score}</b><span>${r.level} RISK</span></div>
       <div><h3>${esc(r.headline)}</h3><div class="muted" style="font-size:12px">${esc(o.buyerName)} · ${esc(o.email)} · engine: ${esc(r.engine)}</div></div>
     </div>
-    <div class="section-title" style="margin-top:16px">&gt; WHAT DROVE THE SCORE <span class="muted">(red adds risk · green lowers it)</span></div>
+    <div class="section-title" style="margin-top:16px">&gt; WHAT DROVE THE SCORE</div>
     ${addrLine}
     ${r.signals.map((sg, i) => `<div class="sig"><span class="sl">${esc(sg.label)}</span><div class="track"><div class="bar ${sg.impact >= 0 ? "up" : "down"}" style="width:${Math.min(50, (Math.abs(sg.impact) / 40) * 50)}%;animation-delay:${i * 0.08}s"></div></div><span class="sv">${sg.impact > 0 ? "+" : ""}${sg.impact}</span><span class="sd">${esc(sg.detail)}</span></div>`).join("")}
     <div class="rr-actions">
       ${["SHIP", "SHIP_WITH_SIGNATURE", "HOLD_AND_VERIFY", "CANCEL"].map((a) => `<button class="act-btn ${{ SHIP: "ship", SHIP_WITH_SIGNATURE: "sign", HOLD_AND_VERIFY: "hold", CANCEL: "cancel" }[a]} ${r.action === a ? "rec" : ""}" data-a="${a}" ${can(a) ? "" : "disabled"} title="${{ SHIP: "Adds tracking to the PayPal transaction", SHIP_WITH_SIGNATURE: "Adds tracking to PayPal; require a signature with the carrier", HOLD_AND_VERIFY: "Hold until you've verified the buyer", CANCEL: "Refund the PayPal payment now, before it can become a chargeback" }[a]}">${{ SHIP: "📦", SHIP_WITH_SIGNATURE: "✍️", HOLD_AND_VERIFY: "⏸", CANCEL: "💸" }[a]} ${ACTION_LABEL[a]}${r.action === a ? " · AI PICK" : ""}</button>`).join("")}
     </div>
     ${after ? `<div class="rr-after">${after}</div>` : ""}
-    ${o.tagId ? `<div class="section-title" style="margin-top:16px">&gt; NFC TAP-TO-CONFIRM TAG <span class="muted">(stick it inside the box)</span></div><div class="nfc-card" id="rr-tag" data-tag="${esc(o.tagId)}"><span class="muted">loading tag…</span></div>` : ""}
+    ${o.tagId ? `<div class="section-title" style="margin-top:16px">&gt; NFC TAP-TO-CONFIRM TAG</div><div class="nfc-card" id="rr-tag" data-tag="${esc(o.tagId)}"><span class="muted">loading tag…</span></div>` : ""}
   </div>`;
   document.querySelectorAll(".act-btn").forEach((b) => (b.onclick = () => decide(o.id, b.dataset.a)));
   if (o.tagId) loadRadarTag(o.tagId);
@@ -255,7 +255,7 @@ async function openInsights() {
   if (insights.loaded || insights.loading) return;
   insights.loading = true;
   const el = $("#view-insights");
-  el.innerHTML = `<div class="view-pad"><div class="view-head"><div class="grow"><h2>📊 INSIGHTS</h2><p>Where disputes cost you money, and what to change.</p></div></div>
+  el.innerHTML = `<div class="view-pad"><div class="view-head"><div class="grow"><h2>📊 INSIGHTS</h2></div></div>
     <div class="panel in-card"><div class="thinking" id="in-think"></div></div></div>`;
   const lines = ["▶ loading 90 days of dispute history…", "▶ grouping losses by root cause, product and week…", "▶ AI analyst reviewing the numbers…", "▶ estimating savings for each fix…"];
   let i = 0;
@@ -276,7 +276,7 @@ async function openInsights() {
 function renderInsights(data, report) {
   const savings = report.findings.reduce((s, f) => s + Number(f.monthly_savings || 0), 0);
   $("#view-insights").innerHTML = `<div class="view-pad">
-    <div class="view-head"><div class="grow"><h2>📊 INSIGHTS <span class="sample-tag">SAMPLE HISTORY</span></h2><p>${esc(data.disputes)} disputes over the ${esc(data.period)}. Numbers are computed in code; the AI only interprets them.</p></div></div>
+    <div class="view-head"><div class="grow"><h2>📊 INSIGHTS <span class="sample-tag">SAMPLE HISTORY</span></h2><p>${esc(data.disputes)} disputes · ${esc(data.period)}</p></div></div>
     <div class="in-tiles">
       <div class="stat" style="--accent:#00e5ff"><div class="top"><span class="label">DISPUTES · 90 DAYS</span><span class="ico">📬</span></div><div class="value">${data.disputes}</div></div>
       <div class="stat" style="--accent:#ff4d6d"><div class="top"><span class="label">MONEY LOST</span><span class="ico">💸</span></div><div class="value">${usd0(data.lostAmount)}</div></div>
@@ -296,9 +296,9 @@ function renderInsights(data, report) {
         <div class="muted" style="font-family:var(--mono);font-size:10px">engine: ${esc(report.engine)}</div>
       </div>
       <div>
-        <div class="panel in-card chart"><h3>MONEY LOST BY ROOT CAUSE</h3><div class="sub">Last 90 days · settled cases count 40% of the amount</div><div id="ch-cause"></div></div>
-        <div class="panel in-card chart"><h3>MONEY LOST PER WEEK</h3><div class="sub">13 weeks, oldest on the left</div><div id="ch-week"></div></div>
-        <div class="panel in-card chart"><h3>MONEY LOST BY PRODUCT</h3><div class="sub">Last 90 days</div><div id="ch-product"></div></div>
+        <div class="panel in-card chart"><h3>MONEY LOST BY ROOT CAUSE</h3><div id="ch-cause"></div></div>
+        <div class="panel in-card chart"><h3>MONEY LOST PER WEEK</h3><div id="ch-week"></div></div>
+        <div class="panel in-card chart"><h3>MONEY LOST BY PRODUCT</h3><div id="ch-product"></div></div>
       </div>
     </div>
   </div>`;
@@ -388,7 +388,7 @@ async function openTrack() {
   if (track.loading || !track.stale) return;
   track.loading = true;
   const el = $("#view-track");
-  if (!el.innerHTML) el.innerHTML = `<div class="view-pad"><div class="view-head"><div class="grow"><h2>🧠 TRACK RECORD</h2><p>How often the agent was right, and what it learned.</p></div></div><div class="panel in-card"><div class="thinking"><div>▶ loading resolved cases…</div></div></div></div>`;
+  if (!el.innerHTML) el.innerHTML = `<div class="view-pad"><div class="view-head"><div class="grow"><h2>🧠 TRACK RECORD</h2></div></div><div class="panel in-card"><div class="thinking"><div>▶ loading resolved cases…</div></div></div></div>`;
   try {
     renderTrack(await DD().api("/api/track-record"));
     track.stale = false;
@@ -401,8 +401,7 @@ async function openTrack() {
 function renderTrack(t) {
   const ago = (iso) => { const d = Math.round((Date.now() - new Date(iso)) / 86400000); return d <= 0 ? "today" : `${d}d ago`; };
   $("#view-track").innerHTML = `<div class="view-pad">
-    <div class="view-head"><div class="grow"><h2>🧠 TRACK RECORD <span class="sample-tag">SAMPLE HISTORY + LIVE</span></h2>
-      <p>Every plan the agent recommends is checked against PayPal's final ruling. Similar past cases then calibrate the win odds for new disputes, and Autopilot uses the calibrated odds. Numbers are computed in code.</p></div></div>
+    <div class="view-head"><div class="grow"><h2>🧠 TRACK RECORD <span class="sample-tag">SAMPLE HISTORY + LIVE</span></h2></div></div>
     <div class="in-tiles">
       <div class="stat" style="--accent:#00e5ff"><div class="top"><span class="label">RESOLVED CASES</span><span class="ico">⚖️</span></div><div class="value">${t.resolved}</div><div class="tile-sub">${t.newSinceStart ? `+${t.newSinceStart} new this session` : "past disputes the agent handled"}</div></div>
       <div class="stat" style="--accent:#2bffb1"><div class="top"><span class="label">PLANS THAT WORKED</span><span class="ico">✅</span></div><div class="value">${t.planSuccess}%</div><div class="tile-sub">won, settled or closed as planned</div></div>
@@ -413,16 +412,14 @@ function renderTrack(t) {
       <div>
         <div class="panel in-card">
           <h3>🧠 WHAT THE AGENT LEARNED</h3>
-          <div class="sub">Case types with at least 4 fought cases. These lessons change the odds on new disputes.</div>
           ${t.lessons.map((l, i) => `<div class="lesson ${l.kind.toLowerCase()}" style="animation-delay:${0.1 + i * 0.1}s"><span class="li">${LESSON_ICON[l.kind]}</span><div><div class="lk">${l.kind}</div>${esc(l.text)}</div></div>`).join("") || `<p class="muted">Not enough resolved cases yet.</p>`}
         </div>
         <div class="panel in-card" style="margin-top:20px">
           <h3>⏳ AWAITING PAYPAL'S RULING</h3>
-          <div class="sub">Responses already sent. Each ruling is added to the record when it arrives.</div>
           ${t.pending.length ? t.pending.map((p) => `<div class="tr-row">
               <div class="grow"><b>${esc(p.item ?? p.disputeId)}</b> <span class="muted">· ${esc(p.disputeId)}</span><br/><span class="muted">${esc(VERDICT_LABEL[p.verdict] ?? p.verdict)} · predicted ${p.odds}% · $${Number(p.amount).toFixed(2)}</span></div>
               ${p.simulated ? `<button class="mini-btn tr-rule" data-id="${esc(p.disputeId)}">⚖️ SIMULATE RULING</button>` : `<span class="muted" style="font-size:11px">via webhook</span>`}
-            </div>`).join("") : `<p class="muted">Nothing waiting. Approve a plan on the Disputes tab and it shows up here.</p>`}
+            </div>`).join("") : `<p class="muted">Nothing waiting.</p>`}
         </div>
         <div class="panel in-card" style="margin-top:20px">
           <h3>📜 RECENT RULINGS</h3>
@@ -435,11 +432,9 @@ function renderTrack(t) {
       </div>
       <div>
         <div class="panel in-card chart"><h3>ARE THE WIN ODDS HONEST?</h3>
-          <div class="sub">Fought cases grouped by predicted odds. On the dashed line, "80%" means the seller really wins 8 times in 10.</div>
           <div class="legend"><span><i class="lg-dot" style="background:${C_RAW}"></i>Agent alone</span><span><i class="lg-sq" style="background:${C_CAL}"></i>With track record</span><span><i class="lg-dash"></i>Perfectly honest</span></div>
           <div id="ch-calib"></div></div>
         <div class="panel in-card chart"><h3>PREDICTED vs. ACTUAL, BY CASE TYPE</h3>
-          <div class="sub">Average odds the agent gave vs. how often the seller actually won. A long red bar means the agent needed correcting.</div>
           <div class="legend"><span><i class="lg-dot" style="background:${C_RAW}"></i>Agent predicted</span><span><i class="lg-dot" style="background:${C_ACTUAL}"></i>Actually won</span></div>
           <div id="ch-pattern"></div></div>
       </div>
@@ -546,7 +541,7 @@ const GROUP_ICON = { PayPal: "🏦", "Evidence & fraud signals": "🔎", "Securi
 
 function buildIntegrationsShell() {
   $("#view-integrations").innerHTML = `<div class="view-pad">
-    <div class="view-head"><div class="grow"><h2>🔌 INTEGRATIONS</h2><p>Every outside API Dispute Defender talks to. <b>LIVE</b> ones make real calls. <b>DEMO</b> ones simulate the call and log what would have been sent. Add the keys in <code>.env</code> to switch one on.</p></div></div>
+    <div class="view-head"><div class="grow"><h2>🔌 INTEGRATIONS</h2></div></div>
     <div class="ig-stats" id="ig-stats"></div>
     <div class="ig-grid"><div id="ig-cards"></div><div class="panel ig-log-panel"><div class="panel-head"><h2><span class="dot live"></span> CALL LOG</h2></div><ul class="ig-log" id="ig-log"></ul></div></div>
   </div>`;
@@ -564,7 +559,6 @@ function renderIntegrations() {
   $("#ig-cards").innerHTML = groups.map((g) => `<div class="section-title">${GROUP_ICON[g] ?? ""} ${esc(g).toUpperCase()}</div><div class="ig-cards">${integrations.filter((i) => i.group === g).map((i) => `
     <div class="ig-card ${i.live ? "on" : "off"}">
       <div class="ig-top"><b>${esc(i.name)}</b><span class="ig-badge">${i.live ? "LIVE" : "DEMO"}</span></div>
-      <p>${esc(i.what)}</p>
       ${i.missing.length ? `<div class="ig-env">Set ${i.missing.map((k) => `<code>${esc(k)}</code>`).join(" ")}</div>` : ""}
       ${i.id === "calendar" ? `<div class="ig-env"><input readonly value="${esc(calendarUrl)}" onclick="this.select()" /> <a class="mini-btn" href="/api/calendar.ics?download=1">⬇ .ics</a></div>` : ""}
       ${i.id === "passkey" ? `<div class="ig-env" id="pk-box">checking…</div>` : ""}
@@ -577,7 +571,7 @@ function renderIntegrations() {
   bindPwa();
   $("#ig-log").innerHTML = calls.length
     ? calls.map((c) => `<li class="${c.ok ? (c.simulated ? "sim" : "ok") : "bad"} ${intg.flash.has(c.seq) ? "new" : ""}"><span class="t">${new Date(c.time).toLocaleTimeString()}</span> <b>${esc(integrations.find((i) => i.id === c.id)?.name ?? c.id)}</b> <span class="tag">${c.ok ? (c.simulated ? "DEMO" : "OK") : "FAIL"}${c.ms != null ? ` · ${c.ms}ms` : ""}</span><div class="a">${esc(c.action)}</div><div class="d">${esc(c.detail)}</div></li>`).join("")
-    : `<li class="muted">No outside calls yet. Ship or cancel an order in Risk Radar, investigate a dispute, or download the calendar.</li>`;
+    : `<li class="muted">No calls yet.</li>`;
 }
 
 async function loadIntegrations() {

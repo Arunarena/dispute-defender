@@ -1,58 +1,67 @@
-# Demo video script (target 2:45, hard limit 3:00)
+# Demo video script (target 2:50, hard limit 3:00)
+
+The video has two recordings, edited together:
+- **Demo recording** (scenes 1–5 and 7): the sample disputes. Use the GitHub Page, or run locally **without** PayPal keys.
+- **Sandbox recording** (scene 6): a real PayPal sandbox dispute. Run locally **with** your PayPal sandbox keys.
 
 **Setup before recording**
-- Restart the server (`npm start`) so the demo data is fresh.
+- Demo recording: restart the server (`npm start`) or reload the GitHub Page so the demo data is fresh. Autopilot switch **off** at the start.
 - Browser at 1440×900 or larger, zoom 100%, bookmarks bar hidden.
-- Autopilot switch **off** at the start.
 - Use no music, or only royalty-free music (the rules ban copyrighted music).
-- Record the screen in one take per scene. Cut between scenes.
+- Record one take per scene. Cut between scenes.
 
-Narration is about 400 words, which runs about 2:45 at a calm pace.
+**Sandbox recording, prepare first (not on camera)**
+1. In the demo shop (`http://localhost:3000/shop.html`), buy an item with the PayPal button, logged in as your sandbox **personal** (buyer) account.
+2. Have a private window open at **sandbox.paypal.com**, logged in as that buyer, on the payment you just made.
+3. Don't escalate the dispute. PayPal's sandbox can't issue a ruling, so the scene ends when the evidence reaches the buyer.
+
+Narration is about 400 words, which runs about 2:50 at a calm pace.
 
 ---
 
-### 0:00–0:15 · Hook
+### 1 · 0:00–0:12 · Hook
 **Screen:** Dashboard. Press **Ctrl+K**, click the mic and say "Brief me". Let Copilot answer out loud.
 
-> "When a buyer opens a PayPal dispute, a small seller has days to respond, and the evidence is scattered everywhere. Most just refund. Dispute Defender is an AI that fights back, and you can just talk to it."
+> "When a buyer opens a PayPal dispute, a small seller has days to respond, and the evidence is scattered everywhere. Most just refund. Dispute Defender is an AI that fights back."
 
-### 0:15–0:55 · The agent investigates
-**Screen:** Click the **headphones** dispute ($129, "never arrived"). Scroll past the buyer's message and the carrier photo. Click **⚡ DEPLOY AI AGENT**. Let the processing screen play. Don't skip it.
+### 2 · 0:12–0:35 · The agent investigates
+**Screen:** Click the **headphones** dispute ($129, "never arrived"). Scroll past the buyer's message and the carrier photo. Click **⚡ DEPLOY AI AGENT**. The processing screen takes about 4 seconds. Let it play.
 
-> "This buyer says the headphones never arrived. I deploy the agent. Claude pulls the order, checks the carrier's tracking, reviews this buyer's history, reads our store policy, and inspects the delivery photo with vision. It reads the house number, 418, and the GPS stamp, and checks them against the shipping address."
+> "This buyer says the headphones never arrived. I deploy the agent. It pulls the order, the carrier tracking, the buyer's history and our policy, and reads the delivery photo: house number 418, GPS stamp, matching the shipping address."
 
-### 0:55–1:20 · The verdict
-**Screen:** Verdict appears. Pause on the FIGHT stamp and gauge, then scroll slowly over the journey map, address check and buyer intel tiles. Click **✓ APPROVE · SUBMIT EVIDENCE**. Let the transmission animation finish.
+### 3 · 0:35–1:00 · The verdict
+**Screen:** Verdict appears. Pause on the FIGHT stamp and gauge, then scroll over the journey map, address check and buyer tiles. Scroll to **PACKAGE TAG · NFC** and hover the tap 2.5 hours after delivery. Click **✓ APPROVE · SUBMIT EVIDENCE**.
 
-**Screen:** Before approving, scroll to **PACKAGE TAG · NFC** and hover the tap 2.5 hours after delivery.
+> "Verdict: fight. The carrier confirms delivery, the addresses match, and this buyer has made the same claim twice. And the NFC tag sealed in the box was tapped two and a half hours after delivery. I approve, and the evidence goes to PayPal's Disputes API. Nothing is sent without me."
 
-> "Verdict: fight, with high win odds. The carrier confirms delivery, the addresses match, and this buyer has made the same claim twice before. And here's the clincher: we seal an NFC tag in every box. A phone tapped it two and a half hours after delivery. Someone had this package in their hands. It drafts the evidence notes, and I approve. Nothing reaches PayPal without me. It goes out through the Disputes API with the tracking number and the delivery photo attached."
+### 4 · 1:00–1:30 · Agent vs. agent negotiation
+**Screen:** Click the **mug set** dispute ($64, one mug chipped). Click **Scan with AI vision** on the buyer's photo. Click **🤝 NEGOTIATION ARENA** and let it run to the deal. Click **✓ SEND OFFER VIA PAYPAL**.
 
-### 1:20–1:55 · Agent vs. agent negotiation
-**Screen:** Click the **mug set** dispute ($64, one mug chipped). Click **Scan with AI vision** on the buyer's photo and let it finish. Click **🤝 NEGOTIATION ARENA**. Let it run to the deal.
+> "Not every case is worth fighting. Vision confirms one of four mugs is chipped, so our seller agent negotiates against a buyer agent built from the buyer's own words. A deal at twenty-four dollars keeps forty instead of refunding sixty-four, sent to the real buyer as a PayPal offer."
 
-> "Not every case is worth fighting. Here, vision confirms one of four mugs really is chipped, so we negotiate. Our seller agent rehearses against a simulated buyer agent built from the buyer's own words. Watch the offers converge: sixteen, thirty-two, and a deal at twenty-four. That keeps forty dollars instead of refunding sixty-four, and one click sends it to the real buyer as a PayPal offer."
+### 5 · 1:30–1:55 · Autopilot
+**Screen:** Flip the **Autopilot** switch on. Show the sliders. Click **📡 Simulate dispute** three times, about a second apart. Let the alerts play.
 
-**Screen:** Click **✓ SEND OFFER VIA PAYPAL**.
+> "Autopilot. PayPal's webhook fires the moment a dispute opens, and the agent acts within my rules: fight above eighty percent odds under two hundred dollars, settle small refunds. The speaker claim is fought and the napkins settled automatically. The two-hundred-nineteen-dollar fraud case is over my limit, so it waits for me."
 
-### 1:55–2:35 · Autopilot
-**Screen:** Point at the Autopilot panel. Flip the switch **on**. Show the sliders. Click **📡 Simulate dispute** three times, about a second apart. Let the alerts and card updates play.
+### 6 · 1:55–2:25 · Real PayPal sandbox *(sandbox recording)*
+**Screen:**
+1. Buyer window (sandbox.paypal.com): open the payment, click **Report a problem → I didn't receive it**, submit.
+2. *Cut* past PayPal's wait (1–4 minutes). The dispute appears in Dispute Defender by itself.
+3. Click it → **⚡ DEPLOY AI AGENT** → **✓ APPROVE**. Hold on the green **✓ Delivered to PayPal** line.
+4. Buyer window: refresh. Show the seller's response on the buyer's case. Check this in a dry run, since PayPal's sandbox layout varies.
 
-> "Now, Autopilot. PayPal sends a webhook the moment a dispute opens, and the agent handles it at once, but only within rules I set. Fight automatically above eighty percent odds and under two hundred dollars. Settle small refunds under twenty-five. Here come three disputes. It fights the speaker claim and settles the napkins on its own. But this two-hundred-nineteen-dollar fraud case is over my limit, so it waits for my approval. Every action is logged with the rule that allowed it."
+> "And this isn't a mock-up. Here's a real PayPal sandbox account. The buyer files a dispute in PayPal, it lands in Dispute Defender within seconds, the agent investigates, I approve, and our response shows up on the buyer's side in PayPal."
 
-*Optional (if time allows):* click **📡 Simulate dispute** a fourth time. The agent says 78% on a "delivered, but no photo or signature" case. The track record drops it to 54%, and a **🧠 TRACK RECORD STEPPED IN** alert holds it for approval.
+### 7 · 2:25–2:50 · Prevention and close
+**Screen:** Click the **🛰️ Risk Radar** tab and let the scan run. Click **HOLD & VERIFY** on Kevin's $579 order. Flash the **📊 Insights** and **🧠 Track Record** tabs.
 
-> "And it learns. Cases like this one used to look like easy wins, but PayPal's past rulings say otherwise, so it holds this one for me."
-
-### 2:35–2:50 · Close
-**Screen:** Click the **🛰️ Risk Radar** tab and let the scan run. Click **HOLD & VERIFY** on Kevin's $579 order (confetti). Flash the **📊 Insights** and **🧠 Track Record** tabs.
-
-> "And it prevents disputes too. Risk Radar scores every PayPal order before it ships, and this one is fraud. Hold it, and that dispute never happens."
+> "It prevents disputes too. Risk Radar scores every PayPal order before it ships, and this one is fraud. Hold it, and the dispute never happens."
 
 > "Dispute Defender: Claude for reasoning, vision and voice, and PayPal's Disputes, Orders and Webhooks APIs to act. It protects revenue, saves sellers hours, and keeps a human in charge."
 
-*Timing tip: with the Risk Radar scene added, trim the Autopilot narration to keep the whole video under 3:00. Rehearse once with a timer.*
-
 ---
 
-**If you run with real keys:** Claude's wording and numbers will differ from the demo data. Do a dry run first and adjust the spoken numbers to match.
+**Timing tips**
+- Rehearse once with a timer. If you run long, trim scene 5 to two simulated disputes.
+- **If you run with a Claude key:** Claude's wording and numbers will differ from the demo data, and the processing screen takes longer. Do a dry run and adjust the spoken numbers.

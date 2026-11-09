@@ -9,10 +9,10 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function step(emit, name, label, input, fn) {
   emit({ type: "tool", name, label, input });
-  await pause(650);
+  await pause(180);
   const result = fn();
   emit({ type: "tool_result", name, result });
-  await pause(250);
+  await pause(60);
   return result;
 }
 

@@ -287,8 +287,8 @@ app.get(
       })(),
       pending: pendingFor(dispute.id),
       outcome: outcomeFor(dispute.id),
-      // Demo: simulated ruling. Sandbox: a real PayPal ruling (adjudicate). Live PayPal: arrives by webhook.
-      canSimulateRuling: !live() || dispute.id.startsWith("PP-D-SIM-") || isSandboxCase(dispute.id),
+      // Demo: simulated ruling. Real PayPal cases (sandbox or live): recorded when PayPal closes the case.
+      canSimulateRuling: !live() || dispute.id.startsWith("PP-D-SIM-"),
       sandboxTools: isSandboxCase(dispute.id),
     });
   }),
@@ -387,7 +387,7 @@ const applyOutcome = (entry) => {
 };
 
 // PayPal's final ruling on a case.
-// Demo disputes: simulated. Sandbox disputes: a real ruling through PayPal's sandbox-only adjudicate call.
+// Demo disputes only. On real PayPal cases (sandbox or live) the ruling is recorded when PayPal closes the case.
 // Without a chosen outcome, the chance of a win follows the calibrated odds, so the result is realistic, not rigged.
 app.post(
   "/api/disputes/:id/ruling",
@@ -395,10 +395,8 @@ app.post(
     const dispute = await loadDispute(req.params.id);
     const p = pendingFor(dispute.id);
     const wanted = ["WON", "SETTLED", "LOST"].includes(req.body?.outcome) ? req.body.outcome : null;
-    if (live() && !dispute.id.startsWith("PP-D-SIM-")) {
-      if (!isSandboxCase(dispute.id)) return res.status(400).json({ error: "PayPal rules on live disputes. The result arrives by webhook." });
-      return res.json(await sandboxRuling(dispute, p, wanted));
-    }
+    if (live() && !dispute.id.startsWith("PP-D-SIM-"))
+      return res.status(400).json({ error: "PayPal decides this case. The result is recorded automatically when PayPal closes it." });
     if (!p) return res.status(400).json({ error: outcomeFor(dispute.id) ? "PayPal has already ruled on this dispute." : "Respond to this dispute first." });
     const outcome = wanted ?? rollOutcome(p);
     const entry = recordOutcome(dispute.id, outcome, { source: "simulated" });
@@ -423,28 +421,6 @@ function rollOutcome(p) {
     : p.verdict === "OFFER_PARTIAL_REFUND" ? (roll < 80 ? "SETTLED" : "LOST")
     : p.verdict === "SEND_MESSAGE" ? (roll < 85 ? "WON" : "LOST")
     : "LOST";
-}
-
-// Sandbox: ask PayPal to rule for the seller or the buyer, then record the result.
-async function sandboxRuling(dispute, p, wanted) {
-  const fail = (message) => Object.assign(new Error(message), { status: 400 });
-  if (dispute.status === "RESOLVED") {
-    // Already closed on PayPal (for example after accepting the claim): just record it.
-    await recordLiveRuling(dispute.id);
-    const entry = outcomeFor(dispute.id);
-    if (!entry) throw fail("PayPal has already closed this dispute.");
-    return { ok: true, outcome: entry.outcome, entry };
-  }
-  if (!p && !wanted) throw fail("Respond to this dispute first, or pick who wins.");
-  if (p?.verdict === "OFFER_PARTIAL_REFUND" && !wanted)
-    throw fail("To settle, log in to the PayPal sandbox as the buyer and accept your offer. The result is then recorded automatically.");
-  const outcome = wanted ?? rollOutcome(p);
-  if (outcome === "SETTLED") throw fail("PayPal can only rule for the seller or the buyer. A settlement happens when the buyer accepts your offer.");
-  await paypal.adjudicate(dispute.id, outcome === "WON" ? "SELLER_FAVOR" : "BUYER_FAVOR");
-  const entry = p ? recordOutcome(dispute.id, outcome, { source: "paypal-sandbox" }) : null;
-  if (entry) applyOutcome(entry);
-  else publish({ type: "outcome_untracked", disputeId: dispute.id, outcome });
-  return { ok: true, outcome, entry };
 }
 
 // Sandbox: move a dispute that's stuck in UNDER_REVIEW to waiting for the seller.

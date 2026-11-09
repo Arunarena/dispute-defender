@@ -6,7 +6,7 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 
 > Built for the *Build What's Next with PayPal and AI* hackathon.
 
-**▶ Try it now: [arunarena.github.io/dispute-defender](https://arunarena.github.io/dispute-defender/)**. It runs in any browser with nothing to install, and a 🎬 guided tour opens on the first visit.
+**▶ Try it now: [arunarena.github.io/dispute-defender](https://arunarena.github.io/dispute-defender/)**. It runs in any browser with nothing to install.
 
 ---
 
@@ -47,7 +47,6 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
     - **Slack, Discord and Zapier / Make / n8n:** alerts for new disputes, cases needing approval, Autopilot actions, PayPal rulings, high-risk orders and deadlines. The automation webhook is signed with HMAC-SHA256.
     - **Deadline calendar:** an iCal feed of response deadlines with a reminder a day before, for Google Calendar, Outlook or Apple Calendar.
 17. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them. Without keys, its demo checkout lets you buy any of the 6 products as a regular or a risky customer and watch Risk Radar score the order live.
-18. **Guided tour:** the 🎬 Tour button walks through the best moments in about 3 minutes, one click per step.
 
 ### Demo scenarios (included)
 
@@ -86,7 +85,6 @@ Open **http://localhost:3000**. With no keys set, the app runs in **demo mode**:
 
 | Feature | Where | Notes |
 |---|---|---|
-| Guided tour | **🎬 Tour** in the header (opens by itself on the first visit) | One click per feature |
 | AI investigation | Click a dispute → **⚡ Deploy AI agent** → **Approve** | Start with the headphones case |
 | Negotiation | Mug set dispute → **🤝 Negotiation arena** | Inquiry-stage cases only |
 | Autopilot | Turn on the **🤖 Autopilot** switch, then click **📡 Simulate dispute** | |
@@ -211,7 +209,6 @@ Browser (public/)                 Node/Express (src/server.js)
 | [src/demoData.js](src/demoData.js) | Sample disputes and store data |
 | [src/server.js](src/server.js) | HTTP API and streaming of agent progress |
 | [public/](public/) | Dashboard and demo shop UI |
-| [public/tour.js](public/tour.js) | Guided tour for first-time visitors and judges |
 | [scripts/build-pages.mjs](scripts/build-pages.mjs), [pages/](pages/) | GitHub Pages build: the server bundled to run in the browser |
 
 ### AI tools used

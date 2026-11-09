@@ -79,7 +79,6 @@ async function api(path, opts = {}) {
 }
 
 // ---------------- header ----------------
-setInterval(() => ($("#clock").textContent = new Date().toLocaleTimeString([], { hour12: false })), 1000);
 
 async function loadConfig() {
   state.config = await api("/api/config");
@@ -147,7 +146,7 @@ function renderStats() {
 
 function renderList() {
   if (!state.disputes.length) {
-    $("#dispute-list").innerHTML = `<p class="muted">No disputes. 🎉<br/><br/>Sandbox mode: buy something in the <a href="/shop.html" target="dd-shop">demo shop</a> with a sandbox buyer, then open a dispute from that buyer's account.</p>`;
+    $("#dispute-list").innerHTML = `<p class="muted">No disputes.</p>`;
     return;
   }
   $("#dispute-list").innerHTML = state.disputes
@@ -182,7 +181,7 @@ function renderActivity() {
 async function selectDispute(id) {
   state.selected = id;
   renderList();
-  $("#detail").innerHTML = `<p class="muted" style="font-family:var(--mono)">&gt; decrypting case file…</p>`;
+  $("#detail").innerHTML = `<p class="muted" style="font-family:var(--mono)">Loading…</p>`;
   try {
     const data = await api(`/api/disputes/${encodeURIComponent(id)}`);
     state.current = data;
@@ -230,7 +229,6 @@ function renderDetail({ withRec = true } = {}) {
     <div class="analyze-row">
       <button class="cta" id="analyze">${rec ? "⟳ RE-RUN ANALYSIS" : "⚡ DEPLOY AI AGENT"}</button>
       <button class="cta alt" id="negotiate" ${d.stage === "INQUIRY" && !isDone(d.status) ? "" : "disabled"} title="${d.stage === "INQUIRY" ? "" : "PayPal only allows offers in the inquiry stage"}">🤝 NEGOTIATION ARENA</button>
-      <span class="hint">${d.stage === "INQUIRY" ? "read-only · nothing is sent to PayPal without your approval" : "negotiation: inquiry stage only (PayPal rule)"}</span>
     </div>
     <div id="rec"></div>`;
   $("#analyze").onclick = () => analyze(d);
@@ -251,8 +249,7 @@ function renderTag() {
     // No tag yet (for example, the order shipped before tags existed): offer to make one.
     if (!d.transactionId) return (el.innerHTML = "");
     el.innerHTML = `<div class="section-title">&gt; PACKAGE TAG · NFC TAP-TO-CONFIRM</div>
-      <div class="nfc-card"><div class="nfc-note" style="margin:0 0 10px">This order has no NFC tag yet. Create one, write it to a sticker, and any phone that taps the box is logged as delivery proof.</div>
-      <button class="mini-btn" id="nfc-create">🏷️ CREATE NFC TAG FOR THIS ORDER</button></div>`;
+      <div class="nfc-card"><button class="mini-btn" id="nfc-create">🏷️ CREATE NFC TAG FOR THIS ORDER</button></div>`;
     $("#nfc-create").onclick = async () => {
       $("#nfc-create").disabled = true;
       try {
@@ -293,7 +290,7 @@ function renderRuling() {
     el.innerHTML = `<div class="ruling done" style="--oc:${m.color}">
       <div class="r-stamp">⚖️ ${m.label}</div>
       <div><b>${m.text}.</b> You kept <b>$${Number(o.kept).toFixed(2)}</b> of $${Number(o.amount).toFixed(2)}.<br/>
-      <span class="muted">Plan: ${esc(verdict)} · predicted ${o.odds}% win odds · ${check}. Added to the Track Record.</span></div>
+      <span class="muted">${esc(verdict)} · predicted ${o.odds}% · ${check}</span></div>
       <button class="mini-btn" id="see-track">🧠 TRACK RECORD</button>
     </div>`;
     $("#see-track").onclick = () => window.DD.showView("track");
@@ -306,36 +303,33 @@ function renderRuling() {
   }
   el.innerHTML = `<div class="ruling">
     <div class="r-stamp wait">⏳ AWAITING RULING</div>
-    <div>Response sent (${esc(VERDICTS[p.verdict]?.label ?? p.verdict)}, predicted ${p.odds}% win odds). When PayPal rules, the result is recorded and used to calibrate future cases.<br/>
-    <span class="muted">${sandboxTools ? "Sandbox: ask PayPal for a real ruling. The win chance follows the calibrated odds. (To settle an offer, accept it as the buyer in the PayPal sandbox.)" : canSimulateRuling ? "Demo mode: simulate the ruling. The win chance follows the calibrated odds." : "The ruling arrives by PayPal webhook (CUSTOMER.DISPUTE.RESOLVED)."}</span></div>
-    ${canSimulateRuling ? `<button class="cta alt" id="sim-ruling">⚖️ ${sandboxTools ? "GET PAYPAL RULING" : "SIMULATE PAYPAL RULING"}</button>` : ""}
+    <div>Response sent · ${esc(VERDICTS[p.verdict]?.label ?? p.verdict)} · predicted ${p.odds}%</div>
+    ${canSimulateRuling ? `<button class="cta alt" id="sim-ruling">⚖️ SIMULATE PAYPAL RULING</button>` : ""}
   </div>`;
   if (canSimulateRuling) $("#sim-ruling").onclick = () => simulateRuling(state.current.dispute.id);
 }
 
-// Sandbox-only controls for real PayPal sandbox disputes (PayPal refuses them on live accounts).
+// Sandbox-only control: hand a case that PayPal is still holding to the seller (doesn't exist on live PayPal).
 function sandboxPanel() {
   const d = state.current.dispute;
-  if (d.status === "RESOLVED") return "";
+  if (d.status !== "UNDER_REVIEW") return "";
   return `<div class="ruling sandbox">
-    <div class="r-stamp wait">🧪 SANDBOX CONTROLS</div>
-    <div>Real PayPal sandbox calls for testing. They don't exist on live PayPal.<br/>
-    <span class="muted">${d.status === "UNDER_REVIEW" && !state.current.pending ? "This case is still with PayPal, so you can't respond yet. Hand it to you to unlock Approve." : "Or skip ahead: make PayPal rule now."}</span></div>
-    <div class="sb-actions">
-      ${d.status === "UNDER_REVIEW" ? `<button class="mini-btn" id="sb-evidence">⏩ HAND CASE TO SELLER</button>` : ""}
-      <button class="mini-btn" id="sb-seller">⚖️ RULE FOR SELLER</button>
-      <button class="mini-btn" id="sb-buyer">⚖️ RULE FOR BUYER</button>
-    </div>
+    <div class="r-stamp wait">🧪 SANDBOX</div>
+    <div>With PayPal · response locked</div>
+    <div class="sb-actions"><button class="mini-btn" id="sb-evidence">⏩ HAND CASE TO SELLER</button></div>
   </div>`;
 }
 
 function bindSandboxPanel() {
   const id = state.current.dispute.id;
-  const run = async (btn, label, fn) => {
-    document.querySelectorAll(".sb-actions button").forEach((b) => (b.disabled = true));
-    btn.textContent = label;
+  const btn = $("#sb-evidence");
+  if (!btn) return;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = "⏩ ASKING PAYPAL…";
     try {
-      await fn();
+      await api(`/api/disputes/${encodeURIComponent(id)}/require-evidence`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      toast("✓ CASE HANDED TO YOU", "PayPal now waits for your response. Run the agent and approve.", "good");
       state.current = await api(`/api/disputes/${encodeURIComponent(id)}`);
       if (state.selected === id) renderDetail();
       await loadList();
@@ -344,17 +338,6 @@ function bindSandboxPanel() {
       if (state.selected === id) renderRuling();
     }
   };
-  const post = (path, body = {}) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  $("#sb-evidence") && ($("#sb-evidence").onclick = (e) => run(e.target, "⏩ ASKING PAYPAL…", async () => {
-    await post(`/api/disputes/${encodeURIComponent(id)}/require-evidence`);
-    toast("✓ CASE HANDED TO YOU", "PayPal now waits for your response. Run the agent and approve.", "good");
-  }));
-  const rule = (outcome) => (e) => run(e.target, "⚖️ PAYPAL IS RULING…", async () => {
-    await post(`/api/disputes/${encodeURIComponent(id)}/ruling`, { outcome });
-    toast(outcome === "WON" ? "⚖️ RULED FOR YOU" : "⚖️ RULED FOR THE BUYER", "PayPal sandbox closed the case.", outcome === "WON" ? "good" : "warn");
-  });
-  $("#sb-seller").onclick = rule("WON");
-  $("#sb-buyer").onclick = rule("LOST");
 }
 
 async function simulateRuling(id) {
@@ -431,13 +414,6 @@ class WarRoom {
 
   line(text, cls = "") { this.queue.push({ text, cls }); }
   run(fn) { this.queue.push({ fn }); }
-  noise(n = 2) {
-    for (let i = 0; i < n; i++) {
-      const hex = () => Math.floor(Math.random() * 0xffff).toString(16).padStart(4, "0");
-      this.line(`  0x${hex()}${hex()}  ${["SYN", "ACK", "PSH", "FIN"][i % 4]}  ${hex()} ${hex()} ${hex()} ${hex()}  ${Math.floor(Math.random() * 40 + 4)}ms`, "dim");
-    }
-  }
-
   async pump() {
     while (!this.closed) {
       const item = this.queue.shift();
@@ -449,14 +425,14 @@ class WarRoom {
       this.term.appendChild(div);
       const cursor = document.createElement("span");
       cursor.className = "cursor";
-      const speed = this.fast ? 400 : item.cls === "dim" ? 6 : 2;
+      const speed = this.fast ? 400 : 8;
       for (let i = 0; i < item.text.length; i += speed) {
         div.textContent = item.text.slice(0, i + speed);
         div.appendChild(cursor);
         this.term.scrollTop = this.term.scrollHeight;
-        await sleep(this.fast ? 0 : 12);
+        await sleep(this.fast ? 0 : 8);
       }
-      if (!this.fast) await sleep(item.cls === "dim" ? 30 : 90);
+      if (!this.fast) await sleep(25);
     }
   }
 
@@ -548,15 +524,7 @@ function analyze(d) {
   const wr = new WarRoom(d);
   wr.open();
   const engine = state.config.aiMode === "claude" ? state.config.model : "scripted-demo";
-  [
-    ["dispute-defender v1.0 :: establishing secure session…", "cmd"],
-    ["handshake ok · tls1.3 · aes-256-gcm", "dim"],
-    [`target locked → ${d.id}  [${money(d.amount)} ${d.amount.currency}]`, "big"],
-    [`reason=${d.reason}  stage=${d.stage}`, ""],
-    [`buyer="${d.buyerName}"  txn=${d.transactionId ?? "?"}`, ""],
-    [`deploying agent :: ${engine}`, "cmd"],
-  ].forEach(([t, c]) => wr.line(t, c));
-  wr.noise(2);
+  wr.line(`${d.id} · ${money(d.amount)} · agent: ${engine}`, "big");
 
   let result = null;
   const es = new EventSource(`/api/disputes/${encodeURIComponent(d.id)}/analyze`);
@@ -565,11 +533,8 @@ function analyze(d) {
     if (ev.type === "status") wr.line(`// ${ev.message}`, "think");
     if (ev.type === "note") wr.line(`// ${ev.message.replace(/\s+/g, " ").slice(0, 220)}`, "think");
     if (ev.type === "tool") {
-      const m = MODULES[ev.name];
       wr.run(() => wr.module(ev.name, "scan", "SCANNING…"));
       wr.line(`$ exec ${ev.name} ${Object.entries(ev.input ?? {}).map(([k, v]) => `--${k}=${v}`).join(" ")}`, "cmd");
-      wr.line(`  connecting to ${m?.name ?? ev.name}…`, "dim");
-      wr.noise(2);
     }
     if (ev.type === "tool_result") {
       for (const [t, c] of detailLines(ev.name, ev.result)) wr.line(t, c);
@@ -583,14 +548,12 @@ function analyze(d) {
       es.close();
       result = ev.recommendation;
       const v = VERDICTS[result.verdict];
-      wr.line("cross-referencing evidence against PayPal adjudication patterns…", "cmd");
-      wr.noise(3);
       wr.line(`>>> VERDICT: ${v.label}   WIN PROBABILITY ${result.win_likelihood}%`, "big");
       wr.line(`>>> ${result.headline}`, "ok");
       wr.run(() => wr.setProgress(100));
       await wr.drained();
       $("#wr-complete").classList.remove("hidden");
-      await sleep(wr.fast ? 300 : 1300);
+      await sleep(wr.fast ? 150 : 450);
       wr.close();
       state.current = await api(`/api/disputes/${encodeURIComponent(d.id)}`);
       renderDetail({ withRec: false });
@@ -990,7 +953,7 @@ function showRules(r) {
   state.rules = r;
   $("#ap-enabled").checked = r.enabled;
   $("#autopilot").classList.toggle("on", r.enabled);
-  $("#ap-sub").textContent = r.enabled ? "ON: new disputes are handled the moment they arrive, within your limits." : "Off: every dispute waits for you.";
+  $("#ap-sub").textContent = r.enabled ? "On" : "Off";
   for (const k of RULE_KEYS) { $(`#r-${k}`).value = r[k]; $(`#v-${k}`).textContent = r[k]; }
   $("#r-autoReply").checked = r.autoReply;
 }
@@ -1121,7 +1084,7 @@ async function openDossier(id) {
   $("#dossier").classList.remove("hidden");
   $("#ds-download").href = url;
   $("#ds-download").setAttribute("download", `evidence-dossier-${id}.pdf`);
-  $("#ds-body").innerHTML = `<div class="ds-compile"><div>▶ COMPILING EVIDENCE DOSSIER…<br/><span class="muted" style="font-size:11px">case summary · seller position · delivery timeline · address check · photos · policies</span><div class="bar"><div></div></div></div></div>`;
+  $("#ds-body").innerHTML = `<div class="ds-compile"><div>▶ COMPILING EVIDENCE DOSSIER…<div class="bar"><div></div></div></div></div>`;
   await sleep(1300);
   $("#ds-body").innerHTML = `<iframe src="${url}#view=FitH" title="Evidence dossier"></iframe>`;
 }

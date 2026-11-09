@@ -150,11 +150,6 @@ export function requireEvidence(id, action = "SELLER_EVIDENCE") {
   return call("POST", `/v1/customer/disputes/${encodeURIComponent(id)}/require-evidence`, { json: { action } });
 }
 
-// Makes PayPal rule on a dispute. outcome: "SELLER_FAVOR" or "BUYER_FAVOR".
-export function adjudicate(id, outcome) {
-  return call("POST", `/v1/customer/disputes/${encodeURIComponent(id)}/adjudicate`, { json: { adjudication_outcome: outcome } });
-}
-
 // ---------- Orders (demo shop checkout) ----------
 
 export async function createOrder(item) {
