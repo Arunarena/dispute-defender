@@ -563,7 +563,7 @@ function renderIntegrations() {
       ${i.id === "calendar" ? `<div class="ig-env"><input readonly value="${esc(calendarUrl)}" onclick="this.select()" /> <a class="mini-btn" href="/api/calendar.ics?download=1">⬇ .ics</a></div>` : ""}
       ${i.id === "passkey" ? `<div class="ig-env" id="pk-box">checking…</div>` : ""}
       ${i.id === "pwa" ? `<div class="ig-env" id="pwa-box">${pwaStatus()}</div>` : ""}
-      ${i.id === "paypal_webhooks" ? `<div class="ig-env">Webhook URL: <code>${esc(webhookUrl)}</code></div>` : ""}
+      ${i.id === "paypal_webhooks" && !window.DD_STATIC_DEMO ? `<div class="ig-env">Webhook URL: <code>${esc(webhookUrl)}</code></div>` : ""}
       <div class="ig-foot"><span class="muted">${i.calls} call${i.calls === 1 ? "" : "s"}</span>${i.testable && i.live ? `<button class="mini-btn" data-test="${i.id}">▶ SEND TEST</button>` : ""}</div>
     </div>`).join("")}</div>`).join("");
   document.querySelectorAll("[data-test]").forEach((b) => (b.onclick = () => testChannel(b)));

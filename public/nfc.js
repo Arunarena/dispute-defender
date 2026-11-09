@@ -35,7 +35,6 @@ function actions(tag, url, { localOnly = false } = {}) {
     <button class="mini-btn" data-nfc-copy="${esc(url)}">🔗 COPY LINK</button>
     <a class="mini-btn" href="${esc(url)}" target="_blank" rel="noopener" title="Opens the page a buyer's phone opens when it touches the box">👆 SIMULATE BUYER TAP</a>
   </div>
-  ${localOnly ? `<div class="nfc-note">Localhost link: phones can't open it.</div>` : ""}
 `;
 }
 

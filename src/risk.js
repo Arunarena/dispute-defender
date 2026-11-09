@@ -1,5 +1,7 @@
 // Risk Radar: score new orders for fraud and dispute risk BEFORE they ship.
 // Prevention beats cure: a held fraudulent order never becomes a dispute.
+import fs from "fs";
+import path from "path";
 import { z } from "zod";
 import { claudeConfigured, claudeJSON } from "./claude.js";
 import { checkAddress } from "./address.js";
@@ -52,12 +54,32 @@ const orders = seedOrders.map((o) => ({ ...o, status: "AWAITING_SHIPMENT", risk:
 let orderCounter = 30412;
 let templateIdx = 0;
 
+// Real PayPal orders are saved to disk so a restart doesn't wipe them. Sample orders reset each start.
+const SAVED_FILE = path.join(path.resolve("data"), "radar-orders.json");
+try {
+  const saved = JSON.parse(fs.readFileSync(SAVED_FILE, "utf8"));
+  orders.unshift(...saved);
+  for (const o of saved) orderCounter = Math.max(orderCounter, Number(String(o.id).replace(/\D/g, "")) + 1 || orderCounter);
+} catch {
+  // nothing saved yet
+}
+
+export function saveOrders() {
+  try {
+    fs.mkdirSync(path.dirname(SAVED_FILE), { recursive: true });
+    fs.writeFileSync(SAVED_FILE, JSON.stringify(orders.filter((o) => o.paypalCaptureId), null, 2));
+  } catch (err) {
+    console.error("Couldn't save Risk Radar orders:", err.message);
+  }
+}
+
 export const listOrders = () => orders;
 export const getOrder = (id) => orders.find((o) => o.id === id);
 
 export function addOrder(o) {
   const order = { id: `ORD-${orderCounter++}`, placed: new Date().toISOString(), status: "AWAITING_SHIPMENT", risk: null, decision: null, ...o };
   orders.unshift(order);
+  if (order.paypalCaptureId) saveOrders();
   return order;
 }
 
@@ -121,11 +143,13 @@ export async function scoreOrder(order) {
   if (!claudeConfigured()) {
     await new Promise((r) => setTimeout(r, 900));
     order.risk = scriptedRisk(order);
+    saveOrders();
     return order.risk;
   }
   const { risk, decision, status, shipment, refund, ...facts } = order;
   const result = await claudeJSON({ system: SYSTEM, schema: RiskSchema, effort: "low", content: `Order to assess:\n${JSON.stringify(facts, null, 2)}` });
   order.risk = { ...result, engine: "claude" };
+  saveOrders();
   return order.risk;
 }
 

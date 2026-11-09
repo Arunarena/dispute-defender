@@ -746,3 +746,16 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius
 .tour-steps li.done .tour-n { background: var(--green); border-color: var(--green); color: #04130c; font-weight: 800; }
 .tour-foot { display: flex; gap: 8px; justify-content: space-between; padding: 10px 14px; border-top: 1px solid rgba(155,123,255,.2); }
 @media (max-width: 700px) { .tour { left: 8px; right: 8px; width: auto; bottom: 8px; } }
+
+/* ================= v4: compact header, assistant button bottom-right ================= */
+.topbar { gap: 12px; padding: 14px 24px; }
+.brand { min-width: 0; }
+.brand h1 { font-size: 20px; }
+.tab, .mode, .sim-btn, .shop-link { white-space: nowrap; }
+.tab { padding: 7px 10px; }
+.copilot-orb { left: auto; right: 20px; }
+.copilot { left: auto; right: 20px; }
+.toasts { bottom: 84px; }
+.shield { flex-shrink: 0; width: 36px; height: 42px; }
+.brand h1 { letter-spacing: .08em; }
+.brand h1 { font-size: 18px; letter-spacing: .06em; }

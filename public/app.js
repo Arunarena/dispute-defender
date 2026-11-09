@@ -34,7 +34,7 @@ const OUTCOMES = {
 
 const imgFor = (name = "") => {
   const n = name.toLowerCase();
-  if (n.includes("headphone")) return "/img/headphones.svg";
+  if (n.includes("headphone") || n.includes("headset")) return "/img/headphones.svg";
   if (n.includes("mug")) return "/img/mug.svg";
   if (n.includes("watch")) return "/img/watch.svg";
   if (n.includes("backpack")) return "/img/backpack.svg";
@@ -84,8 +84,8 @@ async function loadConfig() {
   state.config = await api("/api/config");
   const c = state.config;
   $("#modes").innerHTML = `
-    <span class="mode ${c.paypalMode === "sandbox" ? "" : "off"}">● PAYPAL ${c.paypalMode === "sandbox" ? "SANDBOX" : "DEMO DATA"}</span>
-    <span class="mode ${c.aiMode === "claude" ? "" : "off"}">● AI ${c.aiMode === "claude" ? esc(c.model).toUpperCase() : "SCRIPTED"}</span>`;
+    <span class="mode ${c.paypalMode === "sandbox" ? "" : "off"}">● ${c.paypalMode === "sandbox" ? "PAYPAL SANDBOX" : "DEMO DATA"}</span>
+    <span class="mode ${c.aiMode === "claude" ? "" : "off"}">● ${c.aiMode === "claude" ? esc(c.model).toUpperCase() : "SCRIPTED AI"}</span>`;
 }
 
 // ---------------- list + stats ----------------
@@ -290,7 +290,7 @@ function renderRuling() {
     el.innerHTML = `<div class="ruling done" style="--oc:${m.color}">
       <div class="r-stamp">⚖️ ${m.label}</div>
       <div><b>${m.text}.</b> You kept <b>$${Number(o.kept).toFixed(2)}</b> of $${Number(o.amount).toFixed(2)}.<br/>
-      <span class="muted">${esc(verdict)} · predicted ${o.odds}% · ${check}</span></div>
+      <span class="muted">${esc(verdict)}${o.verdict === "FIGHT" && o.odds ? ` · predicted ${o.odds}%` : ""} · ${check}</span></div>
       <button class="mini-btn" id="see-track">🧠 TRACK RECORD</button>
     </div>`;
     $("#see-track").onclick = () => window.DD.showView("track");
@@ -303,7 +303,7 @@ function renderRuling() {
   }
   el.innerHTML = `<div class="ruling">
     <div class="r-stamp wait">⏳ AWAITING RULING</div>
-    <div>Response sent · ${esc(VERDICTS[p.verdict]?.label ?? p.verdict)} · predicted ${p.odds}%</div>
+    <div>Response sent · ${esc(VERDICTS[p.verdict]?.label ?? p.verdict)}${p.verdict === "FIGHT" && p.odds ? ` · predicted ${p.odds}%` : ""}</div>
     ${canSimulateRuling ? `<button class="cta alt" id="sim-ruling">⚖️ SIMULATE PAYPAL RULING</button>` : ""}
   </div>`;
   if (canSimulateRuling) $("#sim-ruling").onclick = () => simulateRuling(state.current.dispute.id);
@@ -785,7 +785,7 @@ function renderPhotos() {
   box.innerHTML =
     photos.map(photoCard).join("") +
     `<label class="upload-card" id="upload-card"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden id="upload-input" />
-       <div><div class="big-ico">📤</div><b>Add photo evidence</b><br/>Packing photo, delivery proof, damage photo…<br/><span style="font-size:11px">drop or click · PNG/JPG under 5 MB</span></div></label>`;
+       <div><div class="big-ico">📤</div><b>Add photo</b></div></label>`;
   box.querySelectorAll(".scan-btn").forEach((b) => (b.onclick = () => scanPhoto(b.closest(".photo-card").dataset.pid)));
   const input = $("#upload-input");
   input.onchange = () => input.files[0] && uploadPhoto(input.files[0]);

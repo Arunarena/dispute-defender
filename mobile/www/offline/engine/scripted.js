@@ -17,7 +17,7 @@ async function step(emit, name, label, input, fn) {
 }
 
 export async function scriptedRecommendation(d, emit) {
-  emit({ type: "status", message: "Demo mode: scripted agent (add ANTHROPIC_API_KEY to use Claude)" });
+  emit({ type: "status", message: "Demo mode · scripted agent" });
   const amount = Number(d.amount.value);
   const cur = d.amount.currency;
 

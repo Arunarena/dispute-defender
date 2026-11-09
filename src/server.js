@@ -10,7 +10,7 @@ import { seedPhotos, listPhotos, addUpload, analyzePhoto, readPhoto } from "./ph
 import { negotiate } from "./negotiate.js";
 import { bus, rules, updateRules, decide } from "./autopilot.js";
 import { buildDossier } from "./dossier.js";
-import { listOrders, getOrder, addOrder, simulateOrder, scoreOrder, decideOrder, riskStats } from "./risk.js";
+import { listOrders, getOrder, addOrder, simulateOrder, scoreOrder, decideOrder, riskStats, saveOrders } from "./risk.js";
 import { buildReport } from "./insights.js";
 import { askCopilot } from "./copilot.js";
 import { integrationStatus, logCall, timed, CATALOG } from "./integrations.js";
@@ -591,6 +591,7 @@ app.post(
       const tag = createTag({ transactionId: order.paypalCaptureId ?? order.id, buyerName: order.buyerName, items: order.items.map((i) => i.name), total: order.total });
       order.tagId = tag.id;
     }
+    saveOrders();
     publish({ type: "order_decision", order: { id: order.id, decision: order.decision, total: order.total }, integration });
     res.json({ order, stats: riskStats(), integration });
   }),
@@ -951,6 +952,7 @@ app.post(
     const order = riskOrderFromPayPal(data, capture, { items: [{ name: item.name, qty: 1 }], total: item.price, shipment: { carrier, trackingNumber } });
     // The shop "ships" at once, so the box gets its Tap-to-Confirm tag now.
     if (capture?.id) order.tagId = createTag({ transactionId: capture.id, buyerName: order.buyerName, items: [item.name], total: item.price }).id;
+    saveOrders();
     handleNewOrder(order, "PayPal checkout").catch(() => {});
     res.json({ status: data.status, captureId: capture?.id, trackingNumber });
   }),
