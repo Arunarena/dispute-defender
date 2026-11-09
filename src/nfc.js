@@ -31,7 +31,8 @@ const secret = (() => {
 
 const sign = (id) => crypto.createHmac("sha256", secret).update(id).digest("base64url").slice(0, 16);
 export const tokenFor = (id) => `${id}.${sign(id)}`;
-export const tagUrl = (id, base) => `${base}/t/${tokenFor(id)}`;
+// TAG_URL_BASE overrides where tag links point (the GitHub Pages demo has no /t/ route).
+export const tagUrl = (id, base) => `${process.env.TAG_URL_BASE ?? `${base}/t/`}${tokenFor(id)}`;
 
 // Returns the tag for a valid token, or null.
 export function verifyToken(token) {

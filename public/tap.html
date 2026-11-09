@@ -47,7 +47,7 @@
     </main>
     <script>
       const app = document.getElementById("app");
-      const token = decodeURIComponent(location.pathname.split("/t/")[1] || "");
+      const token = decodeURIComponent(location.pathname.split("/t/")[1] || location.hash.split("/t/")[1] || "");
       const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
       let info = null;
       let photo = null;

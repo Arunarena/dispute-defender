@@ -59,9 +59,9 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
 
 ## Quick start (2 minutes, no keys needed)
 
-**Instant, any browser or phone:** [arunarena.github.io/dispute-defender](https://arunarena.github.io/dispute-defender/) (the mobile app with its built-in demo engine; sample disputes, the scripted agent and Autopilot).
+**Instant, any browser:** [arunarena.github.io/dispute-defender](https://arunarena.github.io/dispute-defender/) is the full dashboard in demo mode. Nothing to install, and the phone app is at [/mobile/](https://arunarena.github.io/dispute-defender/mobile/).
 
-**Full dashboard in your browser:** [open it in StackBlitz](https://stackblitz.com/github/Arunarena/dispute-defender). It runs in your browser with nothing to install (Chrome or Edge on desktop).
+**Or the Node server in your browser:** [open it in StackBlitz](https://stackblitz.com/github/Arunarena/dispute-defender). It runs in your browser with nothing to install (Chrome or Edge on desktop).
 
 Or run it locally. Requires **Node.js 20+**.
 
@@ -140,7 +140,7 @@ Restart with `npm start`. Both badges in the header should now show live mode.
 
 StackBlitz runs the Node server inside your browser tab (best in Chrome or Edge on a desktop). It installs, starts and opens the dashboard in demo mode, with no keys needed. The first load takes about a minute.
 
-**GitHub Pages:** <https://arunarena.github.io/dispute-defender/> opens instantly in any browser, phones included. It is the mobile app (`mobile/www`) running the demo engine in the page, with no server. [.github/workflows/pages.yml](.github/workflows/pages.yml) republishes it on every push to main. Integrations, NFC, passkeys and Risk Radar need the full server above.
+**GitHub Pages:** <https://arunarena.github.io/dispute-defender/> opens instantly in any browser. It runs the real server code (`src/server.js`) inside the page: [scripts/build-pages.mjs](scripts/build-pages.mjs) bundles it with small browser stand-ins for Express and Node's built-ins ([pages/](pages/)), and [pages/client.js](pages/client.js) sends the dashboard's `/api` calls to it. Every tab works in demo mode, including Risk Radar, NFC tags, passkeys and the evidence PDF. Data resets when the page reloads. [.github/workflows/pages.yml](.github/workflows/pages.yml) rebuilds it on every push to main. The phone app is at [/mobile/](https://arunarena.github.io/dispute-defender/mobile/).
 
 A [Dockerfile](deploy/huggingface/Dockerfile) that builds the app straight from this repo is also included for any Docker host.
 

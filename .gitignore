@@ -5,3 +5,6 @@ data/
 
 # Personal learning guide (kept local)
 Dispute-Defender-Build-Guide.pdf
+
+# GitHub Pages build output
+_site/

@@ -1,5 +1,6 @@
-# Publishes the in-browser demo (mobile/www: the app plus its offline demo engine) to GitHub Pages.
-# No server, no keys: sample disputes, the scripted agent, Autopilot and simulated PayPal rulings.
+# Publishes the demo to GitHub Pages: the full dashboard with the real server (src/server.js)
+# bundled to run inside the page in demo mode, plus the phone app at /mobile/. No keys, no backend.
+# Build locally with: node scripts/build-pages.mjs  (output in _site/)
 name: Deploy demo to GitHub Pages
 
 on:
@@ -27,11 +28,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Refresh the engine from src/ so the demo always matches the server's demo mode.
-      - run: node mobile/scripts/copy-engine.mjs
+      - run: npm ci
+      - run: node scripts/build-pages.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: mobile/www
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
