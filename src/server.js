@@ -266,7 +266,11 @@ app.get(
     const disputes = await listAllDisputes();
     // No webhook needed: record PayPal's ruling as soon as a case we answered shows as resolved.
     await syncResolved(disputes);
-    res.json({ disputes, activity });
+    const withAi = disputes.map((d) => {
+      const r = recommendations.get(d.id);
+      return r ? { ...d, ai: { verdict: r.verdict, win: r.win_likelihood, saved: r.money_saved_estimate } } : d;
+    });
+    res.json({ disputes: withAi, activity });
   }),
 );
 
@@ -301,6 +305,34 @@ app.get("/api/disputes/:id/analyze", async (req, res) => {
     const dispute = await loadDispute(req.params.id);
     const rec = await runAgent(dispute, emit);
     emit({ type: "result", recommendation: rec });
+  } catch (err) {
+    console.error(err);
+    emit({ type: "error", message: err.message });
+  }
+  res.end();
+});
+
+// Morning triage: runs the agent on every open dispute (a few at a time) and streams one result per case.
+// Cases already analyzed reuse their plan. Nothing is sent to PayPal here.
+app.get("/api/triage", async (req, res) => {
+  const emit = sse(res);
+  try {
+    const open = (await listAllDisputes()).filter((d) => !["RESOLVED", "UNDER_REVIEW", "WAITING_FOR_BUYER_RESPONSE"].includes(d.status));
+    emit({ type: "start", total: open.length });
+    const queue = [...open];
+    const worker = async () => {
+      for (let d; (d = queue.shift()); ) {
+        try {
+          const dispute = await loadDispute(d.id);
+          const rec = recommendations.get(d.id) ?? (await runAgent(dispute, () => {}));
+          emit({ type: "item", id: d.id, verdict: rec.verdict, win: rec.win_likelihood, saved: rec.money_saved_estimate, offer: rec.offer_amount, headline: rec.headline });
+        } catch (err) {
+          emit({ type: "item", id: d.id, error: err.message });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: 3 }, worker));
+    emit({ type: "done" });
   } catch (err) {
     console.error(err);
     emit({ type: "error", message: err.message });

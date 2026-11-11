@@ -759,3 +759,86 @@ kbd { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius
 .shield { flex-shrink: 0; width: 36px; height: 42px; }
 .brand h1 { letter-spacing: .08em; }
 .brand h1 { font-size: 18px; letter-spacing: .06em; }
+/* v5: assistant button is a clean circle until hovered (later rules had left an empty right edge) */
+.copilot-orb { padding: 8px; }
+.copilot-orb:hover { padding-right: 16px; }
+.copilot-orb:not(:hover) { gap: 0; }
+/* room under the last row so the floating assistant button never covers it */
+.view { padding-bottom: 72px; }
+/* v6: morning briefing + verdict chips */
+.head-btns { display: flex; gap: 6px; }
+.vchip { display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .06em; padding: 2px 7px; border-radius: 6px;
+  color: var(--vc); border: 1px solid color-mix(in srgb, var(--vc) 55%, transparent); background: color-mix(in srgb, var(--vc) 12%, transparent); white-space: nowrap; }
+.brief { padding: 6px 4px; }
+.brief-head { display: flex; gap: 24px; align-items: flex-start; justify-content: space-between; }
+.brief-head h2 { margin: 6px 0 8px; font-size: 26px; }
+.brief-head p { margin: 0; max-width: 620px; line-height: 1.5; }
+.brief-head .cta { flex: none; }
+.brief-kicker { font-family: var(--mono); letter-spacing: .2em; font-size: 12px; color: #ffb547; }
+.brief-sum { display: grid; grid-template-columns: repeat(4, 1fr) 2fr; gap: 10px; margin: 22px 0 6px; }
+.bs { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: rgba(255,255,255,.02); }
+.bs b { display: block; font-family: var(--mono); font-size: 26px; color: var(--vc, #2bffb1); }
+.bs span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.bs.keep { border-color: rgba(43,255,177,.4); background: rgba(43,255,177,.06); }
+.brief-tip { margin: 12px 0 0; color: #c9d6ee; }
+.brief-list { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+.brow { display: grid; grid-template-columns: 44px 1fr 44px 90px 150px 110px; align-items: center; gap: 14px; width: 100%; text-align: left;
+  padding: 10px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.02); color: var(--ink); cursor: pointer; font: inherit; transition: border-color .2s, background .2s; }
+.brow:hover { border-color: var(--cyan); background: rgba(0,229,255,.05); }
+.brow img { width: 44px; height: 44px; border-radius: 10px; }
+.brow .bi { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.brow .bi b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brow .bi small { color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.brow .bd { font-family: var(--mono); color: var(--muted); }
+.brow .bd.soon { color: #ff4d6d; }
+.brow .ba { font-family: var(--mono); font-weight: 700; text-align: right; }
+.brow .bk { font-family: var(--mono); font-size: 12px; color: #2bffb1; }
+.brow.flash { animation: browflash 1s ease-out; }
+@keyframes browflash { from { background: rgba(43,255,177,.18); } to { background: rgba(255,255,255,.02); } }
+@media (max-width: 1100px) { .brow { grid-template-columns: 40px 1fr 70px 120px; } .brow .bd, .brow .bk { display: none; } .brief-sum { grid-template-columns: repeat(2, 1fr); } .brief-head { flex-direction: column; } }
+/* v7: phones. Header wraps: brand + buttons on top, tabs scroll sideways underneath. */
+@media (max-width: 760px) {
+  .topbar { flex-wrap: wrap; padding: 12px 14px; gap: 8px; }
+  .brand { flex: 1 1 auto; }
+  .brand h1 { font-size: 16px; }
+  .shield { width: 30px; height: 35px; }
+  .tabs { order: 10; flex: 1 1 100%; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .modes { order: 11; flex: 1 1 100%; display: flex; gap: 6px; }
+  .sim-btn, .shop-link { padding: 6px 10px; font-size: 12px; }
+  .stats { padding: 14px 14px 0; gap: 10px; }
+  .stat .value { font-size: 26px; }
+  .stat .label { font-size: 10px; letter-spacing: .1em; }
+  .layout { padding: 14px 14px 30px; gap: 14px; }
+  .detail-panel { padding: 16px; min-height: 0; }
+  .view-pad { padding: 16px 14px 30px; }
+  .brief-head h2 { font-size: 20px; }
+  .brief-sum { grid-template-columns: repeat(2, 1fr); }
+  .brief-sum .bs.keep { grid-column: 1 / -1; }
+  .brow { grid-template-columns: 36px 1fr auto; gap: 10px; }
+  .brow img { width: 36px; height: 36px; }
+  .brow .ba { display: none; }
+}
+.sample-tag { white-space: nowrap; display: inline-block; }
+@media (max-width: 760px) {
+  .copilot-orb { right: 12px; bottom: 12px; padding: 5px; }
+  .copilot-orb .orb-core { width: 30px; height: 30px; font-size: 15px; }
+  .view-head h2 { font-size: 16px; }
+}
+/* v8: laptop widths. Keep the title from running into the tabs. */
+@media (min-width: 761px) and (max-width: 1560px) {
+  .topbar { gap: 10px; }
+  .brand { gap: 10px; }
+  .brand h1 { font-size: 15px; letter-spacing: .04em; }
+  .tab { padding: 7px 8px; font-size: 12.5px; }
+}
+@media (min-width: 761px) and (max-width: 1420px) {
+  .brand h1 { white-space: normal; width: min-content; line-height: 1.1; }
+  .brand { flex: 0 1 auto; }
+  .tabs { margin-left: auto; }
+}
+@media (min-width: 761px) and (max-width: 1320px) {
+  .tab { padding: 6px 6px; font-size: 12px; }
+  .sim-btn, .shop-link { padding: 7px 10px; font-size: 12px; }
+  .modes .mode { font-size: 10px; }
+}

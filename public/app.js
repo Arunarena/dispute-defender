@@ -85,7 +85,7 @@ async function loadConfig() {
   const c = state.config;
   $("#modes").innerHTML = `
     <span class="mode ${c.paypalMode === "sandbox" ? "" : "off"}">● ${c.paypalMode === "sandbox" ? "PAYPAL SANDBOX" : "DEMO DATA"}</span>
-    <span class="mode ${c.aiMode === "claude" ? "" : "off"}">● ${c.aiMode === "claude" ? esc(c.model).toUpperCase() : "SCRIPTED AI"}</span>`;
+    <span class="mode ${c.aiMode === "claude" ? "" : "off"}" title="${c.aiMode === "claude" ? "Claude runs every investigation, vision check, negotiation and Copilot answer." : "Demo mode: a built-in stand-in plays the agent so anyone can try the app without an API key. Set ANTHROPIC_API_KEY to run Claude."}">● ${c.aiMode === "claude" ? esc(c.model).toUpperCase() : "DEMO AGENT"}</span>`;
 }
 
 // ---------------- list + stats ----------------
@@ -101,6 +101,7 @@ async function loadList() {
   renderList();
   renderStats();
   renderActivity();
+  renderBriefing();
 }
 
 function spark(seed, color) {
@@ -161,7 +162,7 @@ function renderList() {
           <div class="row">${reasonPill(d.reason)}<span class="amt">${money(d.amount)}</span></div>
           <div class="item">${esc(d.item ?? d.id)}</div>
           <div class="who">${esc(d.buyerName ?? "")}</div>
-          <div class="due ${done ? "resolved" : days != null && days <= 5 ? "soon" : ""}">${esc(dueTxt)}${d.photos ? ` · 📸 ${d.photos}` : ""}</div>
+          <div class="due ${done ? "resolved" : days != null && days <= 5 ? "soon" : ""}">${esc(dueTxt)}${d.photos ? ` · 📸 ${d.photos}` : ""}${!done && d.ai ? " " + verdictChip(d.ai) : ""}</div>
           ${ap ? `<div class="ap-status">${ap.busy ? '<span class="spinner-s"></span>' : ""}🤖 ${esc(ap.text)}</div>` : ""}
         </div>
       </button>`;
@@ -177,11 +178,99 @@ function renderActivity() {
     .join("");
 }
 
+// ---------------- morning briefing (shown until a dispute is picked) ----------------
+const verdictChip = (ai) =>
+  ai?.verdict ? `<span class="vchip" style="--vc:${VERDICTS[ai.verdict]?.color}">${esc(VERDICTS[ai.verdict]?.label ?? ai.verdict)}${ai.verdict === "FIGHT" && ai.win != null ? ` · ${ai.win}%` : ""}</span>` : "";
+
+// What the plan is likely worth: a fight keeps the money only as often as it wins.
+const expectedKeep = (ai) => (Number(ai.saved) || 0) * (ai.verdict === "FIGHT" ? (ai.win ?? 0) / 100 : 1);
+
+function renderBriefing() {
+  if (state.selected || state.triaging) return;
+  const open = state.disputes.filter((d) => !isDone(d.status)).sort((a, b) => (daysLeft(a.sellerResponseDue) ?? 99) - (daysLeft(b.sellerResponseDue) ?? 99));
+  if (!open.length) return;
+  const atStake = open.reduce((s, d) => s + Number(d.amount.value), 0);
+  const next = open[0];
+  const nextDays = daysLeft(next.sellerResponseDue);
+  const triaged = open.filter((d) => d.ai);
+  const all = triaged.length === open.length;
+  const count = (v) => triaged.filter((d) => d.ai.verdict === v).length;
+  const keepMax = triaged.reduce((s, d) => s + (Number(d.ai.saved) || 0), 0);
+  const keepExp = triaged.reduce((s, d) => s + expectedKeep(d.ai), 0);
+  const quick = triaged.filter((d) => d.ai.verdict === "FIGHT" && d.ai.win >= 85).length;
+
+  $("#detail").innerHTML = `
+    <div class="brief">
+      <div class="brief-head">
+        <div>
+          <div class="brief-kicker">☀️ MORNING BRIEFING</div>
+          <h2>${open.length} disputes need you · ${money({ value: atStake })} at stake</h2>
+          <p class="muted">Next deadline: <b>${esc(next.buyerName ?? "")}</b>'s ${esc(next.item ?? "case")} in <b>${nextDays ?? "?"} day${nextDays === 1 ? "" : "s"}</b>.
+          ${all ? "Every case has a plan. Open one to review and approve it." : "Let the agent investigate every case at once. Nothing is sent to PayPal until you approve."}</p>
+        </div>
+        <button class="cta" id="triage">${all ? "⟳ RE-CHECK ALL" : `⚡ TRIAGE ALL ${open.length} WITH AI`}</button>
+      </div>
+      ${triaged.length ? `
+      <div class="brief-sum">
+        ${[["FIGHT", "fight"], ["OFFER_PARTIAL_REFUND", "settle"], ["SEND_MESSAGE", "reply"], ["ACCEPT_CLAIM", "accept"]]
+          .map(([v, word]) => `<div class="bs" style="--vc:${VERDICTS[v].color}"><b>${count(v)}</b><span>${word}</span></div>`).join("")}
+        <div class="bs keep"><b>${money({ value: keepExp })}</b><span>expected to keep${keepMax > keepExp + 0.5 ? ` · up to ${money({ value: keepMax })}` : ""}</span></div>
+      </div>
+      ${quick ? `<p class="brief-tip">💡 ${quick} case${quick === 1 ? " has" : "s have"} 85%+ win odds. Approving ${quick === 1 ? "it" : "them"} takes about a minute.</p>` : ""}` : ""}
+      <div class="brief-list">
+        ${open.map((d) => {
+          const days = daysLeft(d.sellerResponseDue);
+          return `<button class="brow" data-id="${esc(d.id)}">
+            <img src="${imgFor(d.item)}" alt="" />
+            <span class="bi"><b>${esc(d.item ?? d.id)}</b><small>${esc(d.buyerName ?? "")} · ${reasonPill(d.reason)}</small></span>
+            <span class="bd ${days != null && days <= 5 ? "soon" : ""}">${days == null ? "" : `${days}d`}</span>
+            <span class="ba">${money(d.amount)}</span>
+            <span class="bv" id="bv-${esc(d.id)}">${d.ai ? verdictChip(d.ai) : '<span class="muted">not checked</span>'}</span>
+            <span class="bk ${d.ai && !Number(d.ai.saved) ? "muted" : ""}">${!d.ai ? "" : Number(d.ai.saved) ? `keeps ${money({ value: Number(d.ai.saved) })}` : "full refund"}</span>
+          </button>`;
+        }).join("")}
+      </div>
+    </div>`;
+  $("#triage").onclick = triageAll;
+  document.querySelectorAll(".brow").forEach((b) => (b.onclick = () => selectDispute(b.dataset.id)));
+}
+
+async function triageAll() {
+  if (state.triaging) return;
+  state.triaging = true;
+  const btn = $("#triage");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-s"></span> INVESTIGATING…';
+  document.querySelectorAll(".brow .bv").forEach((el) => (el.innerHTML = '<span class="spinner-s"></span>'));
+  let n = 0, total = 0;
+  await new Promise((resolve) => {
+    const es = new EventSource("/api/triage");
+    es.onmessage = (m) => {
+      const ev = JSON.parse(m.data);
+      if (ev.type === "start") total = ev.total;
+      if (ev.type === "item") {
+        n++;
+        btn.innerHTML = `<span class="spinner-s"></span> ${n} / ${total} DONE`;
+        const el = document.getElementById(`bv-${ev.id}`);
+        if (el) el.innerHTML = ev.error ? `<span class="muted">⚠ ${esc(ev.error)}</span>` : verdictChip(ev);
+        el?.closest(".brow")?.classList.add("flash");
+      }
+      if (ev.type === "done" || ev.type === "error") { es.close(); resolve(); }
+    };
+    es.onerror = () => { es.close(); resolve(); };
+  });
+  state.triaging = false;
+  await loadList();
+  toast("🧭 TRIAGE COMPLETE", `${n} disputes have a plan. Open any case to review and approve it.`, "good");
+}
+
 // ---------------- detail ----------------
 async function selectDispute(id) {
   state.selected = id;
   renderList();
   $("#detail").innerHTML = `<p class="muted" style="font-family:var(--mono)">Loading…</p>`;
+  // On narrow screens the case sits below the list, so bring it into view.
+  if (matchMedia("(max-width: 1000px)").matches) $("#detail").scrollIntoView({ behavior: "smooth", block: "start" });
   try {
     const data = await api(`/api/disputes/${encodeURIComponent(id)}`);
     state.current = data;
@@ -1097,6 +1186,14 @@ window.DD = {
   async investigate(id) { await window.DD.open(id); analyze(state.current.dispute); },
   async negotiate(id) { await window.DD.open(id); openArena(state.current.dispute); },
   async simulate() { await api("/api/simulate/dispute", { method: "POST" }); },
+  triage() {
+    window.DD.showView?.("disputes");
+    state.selected = null;
+    state.current = null;
+    renderList();
+    renderBriefing();
+    return triageAll();
+  },
 };
 
 // Refresh button: show that it ran, and what it found.
@@ -1122,7 +1219,7 @@ $("#refresh").onclick = async () => {
 $("#case-open").onsubmit = async (e) => {
   e.preventDefault();
   const id = $("#case-id").value.trim().toUpperCase();
-  if (!/^PP-[w-]+$/.test(id)) return toast("CHECK THE CASE ID", "It looks like PP-R-ABC-12345678 (shown on PayPal's case page).", "warn");
+  if (!/^PP-[\w-]+$/.test(id)) return toast("CHECK THE CASE ID", "It looks like PP-R-ABC-12345678 (shown on PayPal's case page).", "warn");
   $("#case-id").value = "";
   await selectDispute(id);
   if (state.current?.dispute?.id === id) await loadList();
@@ -1135,13 +1232,19 @@ if (state.config.paypalMode === "sandbox") {
   setInterval(() => { if (document.visibilityState === "visible") loadList(); }, 30000);
 }
 connectEvents();
+$("#briefing").onclick = () => {
+  state.selected = null;
+  state.current = null;
+  renderList();
+  renderBriefing();
+};
 await loadList();
 
 // Open a case straight from its ID: http://localhost:3000/#PP-R-ABC-12345678
 // (useful while a new sandbox dispute hasn't reached PayPal's list yet).
 async function openFromHash() {
   const id = decodeURIComponent(location.hash.slice(1)).trim();
-  if (!/^PP-[w-]+$/.test(id)) return;
+  if (!/^PP-[\w-]+$/.test(id)) return;
   await selectDispute(id);
   await loadList();
 }

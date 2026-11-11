@@ -47,6 +47,7 @@ Small sellers lose a lot of money to disputes. That isn't always because they're
     - **Slack, Discord and Zapier / Make / n8n:** alerts for new disputes, cases needing approval, Autopilot actions, PayPal rulings, high-risk orders and deadlines. The automation webhook is signed with HMAC-SHA256.
     - **Deadline calendar:** an iCal feed of response deadlines with a reminder a day before, for Google Calendar, Outlook or Apple Calendar.
 17. **The demo shop** uses PayPal **Orders API v2** and the **JavaScript SDK** checkout buttons, so you can make real sandbox purchases and open real sandbox disputes against them. Without keys, its demo checkout lets you buy any of the 6 products as a regular or a risky customer and watch Risk Radar score the order live.
+18. **☀️ Morning briefing and one-click triage:** the dashboard opens on a briefing: how many disputes need you, the money at stake, and the next deadline. **⚡ Triage all with AI** runs the agent on every open dispute at once (three at a time) and gives each one a plan: fight, settle, reply or accept. The briefing then shows the money the plan is expected to keep (a fight counts only as often as it's likely to win) and which cases are quick approvals. Every card in the list shows its verdict. Copilot can do it too: say "triage everything". Nothing is sent to PayPal until you approve each case.
 
 ### Demo scenarios (included)
 

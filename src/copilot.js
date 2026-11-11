@@ -7,7 +7,7 @@ import { MODEL, claudeConfigured, getClient, FALLBACK_PARAMS } from "./claude.js
 
 const SYSTEM = `You are Defender Copilot, the voice assistant inside Dispute Defender, an app that helps a small online store handle PayPal disputes.
 Your replies are read aloud, so answer in 1-3 short, natural spoken sentences. No markdown, no bullet lists, no IDs unless asked; say amounts like "$129".
-Use the data tools to answer questions accurately. Use the action tools to do what the user asks in the app (open a dispute, run an investigation, open negotiation, switch views, toggle Autopilot, simulate a dispute).
+Use the data tools to answer questions accurately. Use the action tools to do what the user asks in the app (triage every dispute at once, open a dispute, run an investigation, open negotiation, switch views, toggle Autopilot, simulate a dispute).
 You cannot send anything to PayPal or move money yourself. If the user asks to fight, refund or settle, start the investigation or negotiation and tell them to approve the result on screen.
 When the user refers to a dispute by product or buyer name ("the headphones", "Priya"), find its ID with list_disputes first.`;
 
@@ -24,6 +24,7 @@ function buildTools(ctx, actions) {
     betaZodTool({ name: "open_negotiation", description: "Open the negotiation arena for an inquiry-stage dispute.", inputSchema: z.object({ dispute_id: z.string() }), run: async ({ dispute_id }) => act("negotiate", { id: dispute_id }) }),
     betaZodTool({ name: "show_view", description: "Switch the main screen: disputes, radar (Risk Radar), insights, track (Track Record: prediction accuracy and what the agent learned from past PayPal rulings), or integrations (which outside APIs are live: PayPal tracking/refunds/transaction search, Shippo, Google address check, Slack/Discord/Zapier alerts, deadline calendar).", inputSchema: z.object({ view: z.enum(["disputes", "radar", "insights", "track", "integrations"]) }), run: async ({ view }) => act("view", { view }) }),
     betaZodTool({ name: "set_autopilot", description: "Turn Autopilot on or off.", inputSchema: z.object({ enabled: z.boolean() }), run: async ({ enabled }) => act("autopilot", { enabled }) }),
+    betaZodTool({ name: "triage_all", description: "Run the AI investigation on every open dispute at once and show the morning briefing with a plan for each. Nothing is sent to PayPal.", inputSchema: z.object({}), run: async () => act("triage") }),
     betaZodTool({ name: "simulate_dispute", description: "Simulate a new dispute arriving from PayPal (demo).", inputSchema: z.object({}), run: async () => act("simulate") }),
   ];
 }
@@ -58,6 +59,10 @@ async function scripted(text, ctx, actions) {
     list.find((d) => [d.item, d.buyerName, d.id].some((s) => s && s.toLowerCase().split(/[\s(),-]+/).some((w) => w.length > 3 && t.includes(w))));
   const money = (n) => `$${Number(n).toFixed(0)}`;
 
+  if (/triage|(check|investigate|analy[sz]e|handle|go through|sort out).*(all|every|everything)/.test(t)) {
+    actions.push({ type: "triage" });
+    return `On it. I'm investigating all ${open.length} open disputes at once, worth ${money(open.reduce((s, d) => s + Number(d.amount), 0))}. Each one gets a plan, and nothing goes to PayPal until you approve.`;
+  }
   if (/brief|summary|morning|status|what.*(going on|happening)|overview/.test(t)) {
     const ov = await ctx.overview();
     const urgent = [...open].sort((a, b) => a.daysLeft - b.daysLeft)[0];

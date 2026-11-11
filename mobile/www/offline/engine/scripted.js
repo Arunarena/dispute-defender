@@ -57,18 +57,21 @@ export async function scriptedRecommendation(d, emit) {
   }
   const sellerPhotos = photoEvidence.filter((p) => p.favors === "SELLER");
   const buyerPhotos = photoEvidence.filter((p) => p.favors === "BUYER");
+  // "Sat Oct 17 2026, 23:44 UTC": readable in evidence text, same for every reader.
+  const utc = (t) => { const x = new Date(t); return `${x.toDateString()}, ${x.toISOString().slice(11, 16)} UTC`; };
+  const placeOf = (tap) => (tap.place ? ` near ${tap.place.replace(/\s*\(network location\)/, "")}` : "");
   const withPhotos = (rec) => {
     if (tapAfterDelivery && d.reason === "MERCHANDISE_OR_SERVICE_NOT_RECEIVED") {
       const hrs = Math.round(((new Date(tapAfterDelivery.time) - new Date(deliveredAt)) / 3600000) * 10) / 10;
-      rec.reasoning.push(`The NFC tag sealed in the box was tapped by a phone (${tapAfterDelivery.device}${tapAfterDelivery.place ? `, ${tapAfterDelivery.place}` : ""}) ${hrs} hours after delivery. Someone had the package in hand.`);
-      rec.evidence.push({ evidence_type: "PROOF_OF_FULFILLMENT", title: "NFC package tap after delivery", detail: `Tag ${tag.id}, written at packing ${new Date(tag.writtenAt).toDateString()}, tapped ${new Date(tapAfterDelivery.time).toUTCString()} by ${tapAfterDelivery.device}` });
+      rec.reasoning.push(`The NFC tag sealed in the box was tapped by a phone (${tapAfterDelivery.device})${placeOf(tapAfterDelivery)} ${hrs} hours after delivery. Someone had the package in hand.`);
+      rec.evidence.push({ evidence_type: "PROOF_OF_FULFILLMENT", title: "NFC package tap after delivery", detail: `Tag ${tag.id}, written at packing ${new Date(tag.writtenAt).toDateString()}, tapped ${utc(tapAfterDelivery.time)} by ${tapAfterDelivery.device}` });
       rec.win_likelihood = Math.min(97, rec.win_likelihood + 6);
       if (rec.response_text) rec.response_text += ` In addition, the NFC tag sealed inside the package was tapped by a phone on ${new Date(tapAfterDelivery.time).toDateString()}, ${hrs} hours after the carrier's delivery scan, which shows the package was physically received.`;
     }
     const confirmed = tag?.taps.find((x) => x.kind === "CONFIRM_OK");
     if (confirmed && d.reason !== "MERCHANDISE_OR_SERVICE_NOT_RECEIVED" && rec.verdict === "FIGHT") {
       rec.reasoning.push(`The buyer tapped the NFC tag in the box and pressed "Arrived OK" on ${new Date(confirmed.time).toDateString()} (${confirmed.device}${confirmed.location ? ", with GPS at the delivery address" : ""}).`);
-      rec.evidence.push({ evidence_type: "PROOF_OF_FULFILLMENT", title: "Buyer confirmed delivery by NFC tap", detail: `Tag ${tag.id}: "Arrived OK" pressed ${new Date(confirmed.time).toUTCString()} on ${confirmed.device}` });
+      rec.evidence.push({ evidence_type: "PROOF_OF_FULFILLMENT", title: "Buyer confirmed delivery by NFC tap", detail: `Tag ${tag.id}: "Arrived OK" pressed ${utc(confirmed.time)} on ${confirmed.device}` });
       rec.win_likelihood = Math.min(97, rec.win_likelihood + 6);
       if (rec.response_text) rec.response_text += ` The buyer also confirmed receipt themselves: they tapped the NFC tag inside the package and pressed "Arrived OK" on ${new Date(confirmed.time).toDateString()}.`;
     }

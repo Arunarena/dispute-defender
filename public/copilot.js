@@ -9,7 +9,7 @@ const history = [];
 let speak = true;
 let busy = false;
 
-const CHIPS = ["Brief me", "What's due soon?", "Fight the headphones dispute", "Negotiate with Priya", "Show me Risk Radar", "Why am I losing money?", "What have you learned?", "Turn on Autopilot"];
+const CHIPS = ["Brief me", "Triage everything", "What's due soon?", "Fight the headphones dispute", "Negotiate with Priya", "Show me Risk Radar", "Why am I losing money?", "What have you learned?", "Turn on Autopilot"];
 $("#cp-chips").innerHTML = CHIPS.map((c) => `<button class="chip">${esc(c)}</button>`).join("");
 document.querySelectorAll(".chip").forEach((b) => (b.onclick = () => send(b.textContent)));
 
@@ -24,7 +24,7 @@ function addMsg(role, text, acts = []) {
 }
 
 const actionLabel = (a) =>
-  ({ open_dispute: `opened ${a.id}`, analyze: `investigating ${a.id}`, negotiate: `negotiation for ${a.id}`, view: `showing ${a.view}`, autopilot: `autopilot ${a.enabled ? "on" : "off"}`, simulate: "simulating a dispute" })[a.type] ?? a.type;
+  ({ open_dispute: `opened ${a.id}`, analyze: `investigating ${a.id}`, negotiate: `negotiation for ${a.id}`, view: `showing ${a.view}`, autopilot: `autopilot ${a.enabled ? "on" : "off"}`, simulate: "simulating a dispute", triage: "triaging every dispute" })[a.type] ?? a.type;
 
 function open() {
   panel.classList.remove("hidden");
@@ -121,9 +121,10 @@ async function runActions(actions = []) {
     if (a.type === "negotiate") await DD.negotiate(a.id);
     if (a.type === "autopilot") { await DD.saveRules({ enabled: a.enabled }); }
     if (a.type === "simulate") await DD.simulate();
+    if (a.type === "triage") DD.triage();
   }
   // Big full-screen moments (investigation, negotiation) take over; tuck the panel away.
-  if (actions.some((a) => ["analyze", "negotiate"].includes(a.type))) close();
+  if (actions.some((a) => ["analyze", "negotiate", "triage"].includes(a.type))) close();
 }
 
 $("#cp-form").onsubmit = (e) => { e.preventDefault(); send($("#cp-text").value); };
