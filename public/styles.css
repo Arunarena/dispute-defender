@@ -1296,3 +1296,38 @@ html[data-theme="kawaii"] { background:
 @media (min-width: 761px) and (max-width: 1420px) { .wm-b { font-size: 18px; } .wm-a { font-size: 9px; letter-spacing: .55em; } .shield { width: 44px; height: 44px; } }
 @media (min-width: 761px) and (max-width: 1320px) { .wm-b { font-size: 16px; } }
 [data-theme="kawaii"] .wm-a { text-shadow: none; }
+
+
+/* ================= v15: shop payment confirmation ================= */
+.pay-ok { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 20px;
+  background: rgba(var(--deep-rgb), .6); backdrop-filter: blur(6px); animation: poin .25s ease-out; }
+.pay-ok.out { animation: poout .25s ease-in forwards; }
+@keyframes poin { from { opacity: 0; } } @keyframes poout { to { opacity: 0; } }
+.po-card { width: min(440px, 100%); padding: 30px 30px 24px; border-radius: 22px; text-align: center; background: var(--panel-solid);
+  border: 1px solid var(--line-strong); box-shadow: 0 30px 80px -24px rgba(0,0,0,.6); animation: popop .5s cubic-bezier(.3,1.5,.5,1); }
+@keyframes popop { from { transform: translateY(18px) scale(.94); opacity: 0; } }
+.po-check { width: 76px; height: 76px; display: block; margin: 0 auto 14px; }
+.po-check circle { fill: rgba(var(--green-rgb), .12); stroke: var(--green); stroke-width: 2.5; stroke-dasharray: 152; stroke-dashoffset: 152; animation: podraw .6s .15s ease-out forwards; }
+.po-check path { fill: none; stroke: var(--green); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 36; stroke-dashoffset: 36; animation: podraw .4s .6s ease-out forwards; }
+@keyframes podraw { to { stroke-dashoffset: 0; } }
+.po-card h2 { font-family: var(--sans); font-size: 24px; font-weight: 800; margin: 0 0 6px; color: var(--ink); }
+.po-amt { margin: 0 0 18px; color: var(--ink2); font-size: 15px; }
+.po-amt b { color: var(--ink); }
+.po-card dl { display: grid; grid-template-columns: auto 1fr; gap: 9px 16px; margin: 0 0 16px; padding: 16px 18px; text-align: left; font-size: 13px;
+  border-radius: 14px; background: rgba(var(--glass-rgb), .04); border: 1px solid var(--line); }
+.po-card dt { color: var(--muted); }
+.po-card dd { margin: 0; color: var(--ink); text-align: right; overflow-wrap: anywhere; }
+.po-card code { font-size: 12px; }
+.po-note { font-size: 12px; color: var(--muted); margin: 0 0 18px; }
+.po-btns { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.po-btns .cta { padding: 11px 28px; }
+.po-btns .cta::after { display: none; }
+
+/* PayPal Midnight and Daylight: PayPal blue button */
+[data-theme="paypal"] .po-btns .cta, [data-theme="light"] .po-btns .cta { background: #0070e0; color: #fff; box-shadow: none; border-radius: 999px; }
+/* Kawaii: Mochi on top, pink everything */
+.po-mochi { width: 96px; display: block; margin: -6px auto 8px; animation: kwbob 2.4s ease-in-out infinite; }
+[data-theme="kawaii"] .pay-ok { background: rgba(255,228,240,.65); }
+[data-theme="kawaii"] .po-card { border: 3px solid #ff8fb8; border-radius: 30px; box-shadow: 0 8px 0 #ffd0e2, 0 30px 70px -20px rgba(232,52,78,.4); }
+[data-theme="kawaii"] .po-card h2 { font-family: "Baloo 2", Nunito, sans-serif; color: #ff4f9a; }
+[data-theme="kawaii"] .po-card dl { background: #fff5f9; border: 2px dashed #ffc2da; }
