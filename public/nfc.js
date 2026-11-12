@@ -18,7 +18,7 @@ function timeline(tag) {
     const [icon, label] = KIND[t.kind] ?? ["•", t.kind];
     const bits = [
       t.device,
-      t.place,
+      t.place ? t.place.replace(/\s*\(network location\)/, "") : null,
       t.location ? `GPS ±${t.location.accuracy} m` : null,
       t.hoursAfterDelivery != null ? (t.hoursAfterDelivery >= 0 ? `<b class="good">${t.hoursAfterDelivery} h after delivery scan</b>` : `${-t.hoursAfterDelivery} h before delivery scan`) : null,
     ].filter(Boolean);

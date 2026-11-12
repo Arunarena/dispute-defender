@@ -85,7 +85,7 @@ function drawRadar() {
     return { o, x: 210 + Math.cos(a) * r, y: 210 + Math.sin(a) * r };
   });
   svg.innerHTML = `
-    <defs><linearGradient id="sweepg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="rgba(0,229,255,0)"/><stop offset="1" stop-color="rgba(0,229,255,.35)"/></linearGradient></defs>
+    <defs><linearGradient id="sweepg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:rgba(var(--cyan-rgb),0)"/><stop offset="1" style="stop-color:rgba(var(--cyan-rgb),.35)"/></linearGradient></defs>
     <circle cx="210" cy="210" r="200" class="zone-high"/><circle cx="210" cy="210" r="132" class="zone-med"/><circle cx="210" cy="210" r="81" class="zone-low"/>
     ${[81, 132, 200].map((r) => `<circle cx="210" cy="210" r="${r}" class="ring"/>`).join("")}
     <line x1="10" y1="210" x2="410" y2="210" class="ring"/><line x1="210" y1="10" x2="210" y2="410" class="ring"/>
@@ -105,9 +105,9 @@ function drawRadar() {
 function drawStats() {
   const s = radar.stats;
   $("#rr-stats").innerHTML = `
-    <div class="stat" style="--accent:#00e5ff"><div class="top"><span class="label">ORDERS SCANNED</span><span class="ico">🔎</span></div><div class="value">${s.scanned ?? 0}<span style="font-size:14px;color:var(--muted)"> / ${radar.orders.length}</span></div></div>
-    <div class="stat" style="--accent:#ff4d6d"><div class="top"><span class="label">HIGH RISK</span><span class="ico">🛑</span></div><div class="value">${s.high ?? 0}</div></div>
-    <div class="stat" style="--accent:#2bffb1"><div class="top"><span class="label">FRAUD PREVENTED</span><span class="ico">🛡️</span></div><div class="value">${usd(s.prevented ?? 0)}</div></div>`;
+    <div class="stat" style="--accent:var(--cyan)"><div class="top"><span class="label">ORDERS SCANNED</span><span class="ico">🔎</span></div><div class="value">${s.scanned ?? 0}<span style="font-size:14px;color:var(--muted)"> / ${radar.orders.length}</span></div></div>
+    <div class="stat" style="--accent:var(--red)"><div class="top"><span class="label">HIGH RISK</span><span class="ico">🛑</span></div><div class="value">${s.high ?? 0}</div></div>
+    <div class="stat" style="--accent:var(--green)"><div class="top"><span class="label">FRAUD PREVENTED</span><span class="ico">🛡️</span></div><div class="value">${usd(s.prevented ?? 0)}</div></div>`;
 }
 
 const ACTION_LABEL = { SHIP: "SHIP", SHIP_WITH_SIGNATURE: "SHIP + SIGNATURE", HOLD_AND_VERIFY: "HOLD & VERIFY", CANCEL: "CANCEL & REFUND" };
@@ -119,7 +119,7 @@ function drawOrders() {
       <img src="${imgFor(o.items[0].name)}" alt="" />
       <div><div class="on">${esc(o.buyerName)} · ${usd(o.total)}</div>
         <div class="om">${esc(o.items[0].name)}${o.items[0].qty > 1 ? ` ×${o.items[0].qty}` : ""} · ${esc(o.shippingSpeed)}</div>
-        <div class="ostat">${esc(o.id)} · ${STATUS_LABEL[o.status] ?? o.status}${o.risk ? ` · AI: ${ACTION_LABEL[o.risk.action]}` : ""}</div></div>
+        <div class="ostat">${o.risk ? `→ ${ACTION_LABEL[o.risk.action]}` : o.status === "AWAITING_SHIPMENT" ? "" : STATUS_LABEL[o.status] ?? o.status}</div></div>
       <div class="score ${o.risk ? o.risk.level : "pending"}">${o.risk ? `<b>${o.risk.score}</b><span>${o.risk.level}</span>` : `<b>··</b><span>PENDING</span>`}</div>
     </button>`)
     .join("");
@@ -146,7 +146,7 @@ function drawDetail() {
   $("#rr-detail").innerHTML = `<div class="rr-detail">
     <div style="display:flex;gap:16px;align-items:center">
       <div class="score ${r.level}" style="min-width:90px"><b style="font-size:34px">${r.score}</b><span>${r.level} RISK</span></div>
-      <div><h3>${esc(r.headline)}</h3><div class="muted" style="font-size:12px">${esc(o.buyerName)} · ${esc(o.email)} · engine: ${esc(r.engine)}</div></div>
+      <div><h3>${esc(r.headline)}</h3><div class="muted" style="font-size:12px">${esc(o.buyerName)} · ${esc(o.email)}</div></div>
     </div>
     <div class="section-title" style="margin-top:16px">&gt; WHAT DROVE THE SCORE</div>
     ${addrLine}
@@ -278,10 +278,10 @@ function renderInsights(data, report) {
   $("#view-insights").innerHTML = `<div class="view-pad">
     <div class="view-head"><div class="grow"><h2>📊 INSIGHTS <span class="sample-tag">SAMPLE HISTORY</span></h2><p>${esc(data.disputes)} disputes · ${esc(data.period)}</p></div></div>
     <div class="in-tiles">
-      <div class="stat" style="--accent:#00e5ff"><div class="top"><span class="label">DISPUTES · 90 DAYS</span><span class="ico">📬</span></div><div class="value">${data.disputes}</div></div>
-      <div class="stat" style="--accent:#ff4d6d"><div class="top"><span class="label">MONEY LOST</span><span class="ico">💸</span></div><div class="value">${usd0(data.lostAmount)}</div></div>
-      <div class="stat" style="--accent:#ffb547"><div class="top"><span class="label">WIN RATE</span><span class="ico">⚖️</span></div><div class="value">${data.winRate}%</div></div>
-      <div class="stat" style="--accent:#2bffb1"><div class="top"><span class="label">SAVINGS IF FIXED</span><span class="ico">🚀</span></div><div class="value">${usd0(savings)}<span style="font-size:14px;color:var(--muted)">/mo</span></div></div>
+      <div class="stat" style="--accent:var(--cyan)"><div class="top"><span class="label">DISPUTES · 90 DAYS</span><span class="ico">📬</span></div><div class="value">${data.disputes}</div></div>
+      <div class="stat" style="--accent:var(--red)"><div class="top"><span class="label">MONEY LOST</span><span class="ico">💸</span></div><div class="value">${usd0(data.lostAmount)}</div></div>
+      <div class="stat" style="--accent:var(--amber)"><div class="top"><span class="label">WIN RATE</span><span class="ico">⚖️</span></div><div class="value">${data.winRate}%</div></div>
+      <div class="stat" style="--accent:var(--green)"><div class="top"><span class="label">SAVINGS IF FIXED</span><span class="ico">🚀</span></div><div class="value">${usd0(savings)}<span style="font-size:14px;color:var(--muted)">/mo</span></div></div>
     </div>
     <div class="in-grid">
       <div class="panel in-card">
@@ -293,7 +293,7 @@ function renderInsights(data, report) {
           <div class="fd">${esc(f.detail)}</div>
           <div class="ff"><b>FIX</b>${esc(f.fix)}</div>
         </div>`).join("")}
-        <div class="muted" style="font-family:var(--mono);font-size:10px">engine: ${esc(report.engine)}</div>
+        
       </div>
       <div>
         <div class="panel in-card chart"><h3>MONEY LOST BY ROOT CAUSE</h3><div id="ch-cause"></div></div>
@@ -379,7 +379,7 @@ function lineChart(el, pts) {
 const track = { loading: false, stale: true };
 const C_RAW = "#d95926"; // agent alone (categorical slot 2, validated on the dark surface)
 const C_CAL = "#3987e5"; // with track record (categorical slot 1)
-const C_ACTUAL = "#e6f1ff"; // what really happened (ink)
+const C_ACTUAL = "var(--ink)"; // what really happened (ink)
 const VERDICT_LABEL = { FIGHT: "Fight", OFFER_PARTIAL_REFUND: "Partial refund", ACCEPT_CLAIM: "Accept", SEND_MESSAGE: "Reply" };
 const OUTCOME_COLOR = { WON: "var(--green)", SETTLED: "var(--violet)", LOST: "var(--red)" };
 const LESSON_ICON = { OVERCONFIDENT: "📉", UNDERCONFIDENT: "📈", STRATEGY: "♟️", CALIBRATED: "🎯" };
@@ -403,10 +403,10 @@ function renderTrack(t) {
   $("#view-track").innerHTML = `<div class="view-pad">
     <div class="view-head"><div class="grow"><h2>🧠 TRACK RECORD <span class="sample-tag">SAMPLE HISTORY + LIVE</span></h2></div></div>
     <div class="in-tiles">
-      <div class="stat" style="--accent:#00e5ff"><div class="top"><span class="label">RESOLVED CASES</span><span class="ico">⚖️</span></div><div class="value">${t.resolved}</div><div class="tile-sub">${t.newSinceStart ? `+${t.newSinceStart} new this session` : "past disputes the agent handled"}</div></div>
-      <div class="stat" style="--accent:#2bffb1"><div class="top"><span class="label">PLANS THAT WORKED</span><span class="ico">✅</span></div><div class="value">${t.planSuccess}%</div><div class="tile-sub">won, settled or closed as planned</div></div>
-      <div class="stat" style="--accent:#ffb547"><div class="top"><span class="label">FIGHT WIN RATE</span><span class="ico">🥊</span></div><div class="value">${t.fightWinRate}%</div><div class="tile-sub">${t.fought} cases fought</div></div>
-      <div class="stat" style="--accent:#9b7bff"><div class="top"><span class="label">PREDICTION ERROR</span><span class="ico">🎯</span></div><div class="value">−${Math.max(0, t.brier.improvement)}%</div><div class="tile-sub">Brier ${t.brier.raw} → ${t.brier.calibrated} with learning</div></div>
+      <div class="stat" style="--accent:var(--cyan)"><div class="top"><span class="label">RESOLVED CASES</span><span class="ico">⚖️</span></div><div class="value">${t.resolved}</div><div class="tile-sub">${t.newSinceStart ? `+${t.newSinceStart} new this session` : "past disputes the agent handled"}</div></div>
+      <div class="stat" style="--accent:var(--green)"><div class="top"><span class="label">PLANS THAT WORKED</span><span class="ico">✅</span></div><div class="value">${t.planSuccess}%</div><div class="tile-sub">won, settled or closed as planned</div></div>
+      <div class="stat" style="--accent:var(--amber)"><div class="top"><span class="label">FIGHT WIN RATE</span><span class="ico">🥊</span></div><div class="value">${t.fightWinRate}%</div><div class="tile-sub">${t.fought} cases fought</div></div>
+      <div class="stat" style="--accent:var(--violet)"><div class="top"><span class="label">PREDICTION ERROR</span><span class="ico">🎯</span></div><div class="value">−${Math.max(0, t.brier.improvement)}%</div><div class="tile-sub">fewer wrong calls after learning</div></div>
     </div>
     <div class="in-grid">
       <div>
@@ -468,8 +468,8 @@ function calibChart(el, buckets) {
   const marker = (p, s, i) => {
     const cx = x(p.predicted), cy = y(p.actual);
     const shape = s.shape === "circle"
-      ? `<circle cx="${cx}" cy="${cy}" r="5" fill="${s.color}" class="cm"/>`
-      : `<rect x="${cx - 5}" y="${cy - 5}" width="10" height="10" rx="2" fill="${s.color}" class="cm"/>`;
+      ? `<circle cx="${cx}" cy="${cy}" r="5" style="fill:${s.color}" class="cm"/>`
+      : `<rect x="${cx - 5}" y="${cy - 5}" width="10" height="10" rx="2" style="fill:${s.color}" class="cm"/>`;
     return `<g class="cpt" data-s="${s.key}" data-i="${i}"><circle cx="${cx}" cy="${cy}" r="13" fill="transparent"/>${shape}</g>`;
   };
   const ticks = [0, 25, 50, 75, 100];
@@ -482,7 +482,7 @@ function calibChart(el, buckets) {
       const p = pts(s.key);
       const d = p.map((q, i) => `${i ? "L" : "M"}${x(q.predicted).toFixed(1)} ${y(q.actual).toFixed(1)}`).join(" ");
       const last = p.at(-1);
-      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" opacity=".85"/>
+      return `<path d="${d}" fill="none" style="stroke:${s.color}" stroke-width="2" opacity=".85"/>
         ${p.map((q, i) => marker(q, s, i)).join("")}
         ${last ? `<text class="val" x="${x(last.predicted) + 10}" y="${y(last.actual) + (s.key === "raw" ? 14 : -6)}">${s.name}</text>` : ""}`;
     }).join("")}
@@ -511,9 +511,9 @@ function dumbbell(el, rows) {
       return `<g class="drow" data-i="${i}">
         <rect x="0" y="${cy - rowH / 2}" width="${W}" height="${rowH}" fill="transparent"/>
         <text class="cat" x="${labelW - 12}" y="${cy + 4}" text-anchor="end">${esc(short)}</text>
-        <line x1="${x(r.avgPredicted)}" x2="${x(r.actual)}" y1="${cy}" y2="${cy}" stroke="${big ? "rgba(255,77,109,.55)" : "rgba(255,255,255,.25)"}" stroke-width="${big ? 4 : 2}" stroke-linecap="round"/>
-        <circle cx="${x(r.avgPredicted)}" cy="${cy}" r="5.5" fill="${C_RAW}" stroke="var(--panel-solid)" stroke-width="2"/>
-        <circle cx="${x(r.actual)}" cy="${cy}" r="5.5" fill="${C_ACTUAL}" stroke="var(--panel-solid)" stroke-width="2"/>
+        <line x1="${x(r.avgPredicted)}" x2="${x(r.actual)}" y1="${cy}" y2="${cy}" style="stroke:${big ? "rgba(var(--red-rgb),.55)" : "rgba(var(--glass-rgb),.25)"}" stroke-width="${big ? 4 : 2}" stroke-linecap="round"/>
+        <circle cx="${x(r.avgPredicted)}" cy="${cy}" r="5.5" fill="${C_RAW}" style="stroke:var(--panel-solid)" stroke-width="2"/>
+        <circle cx="${x(r.actual)}" cy="${cy}" r="5.5" style="fill:${C_ACTUAL};stroke:var(--panel-solid)" stroke-width="2"/>
         <text class="val" x="${W - valueW + 10}" y="${cy + 4}">${r.actual}% <tspan class="axis">n=${r.fought}</tspan></text>
       </g>`;
     }).join("")}
@@ -552,9 +552,9 @@ function renderIntegrations() {
   const { integrations, calls, calendarUrl, webhookUrl } = intg.data;
   const live = integrations.filter((i) => i.live).length;
   $("#ig-stats").innerHTML = `
-    <div class="stat" style="--accent:#2bffb1"><div class="top"><span class="label">LIVE</span><span class="ico">🟢</span></div><div class="value">${live}<span style="font-size:14px;color:var(--muted)"> / ${integrations.length}</span></div></div>
-    <div class="stat" style="--accent:#00e5ff"><div class="top"><span class="label">CALLS THIS SESSION</span><span class="ico">📡</span></div><div class="value">${calls.length}</div></div>
-    <div class="stat" style="--accent:#ff4d6d"><div class="top"><span class="label">FAILED</span><span class="ico">⚠</span></div><div class="value">${calls.filter((c) => !c.ok).length}</div></div>`;
+    <div class="stat" style="--accent:var(--green)"><div class="top"><span class="label">LIVE</span><span class="ico">🟢</span></div><div class="value">${live}<span style="font-size:14px;color:var(--muted)"> / ${integrations.length}</span></div></div>
+    <div class="stat" style="--accent:var(--cyan)"><div class="top"><span class="label">CALLS THIS SESSION</span><span class="ico">📡</span></div><div class="value">${calls.length}</div></div>
+    <div class="stat" style="--accent:var(--red)"><div class="top"><span class="label">FAILED</span><span class="ico">⚠</span></div><div class="value">${calls.filter((c) => !c.ok).length}</div></div>`;
   const groups = [...new Set(integrations.map((i) => i.group))];
   $("#ig-cards").innerHTML = groups.map((g) => `<div class="section-title">${GROUP_ICON[g] ?? ""} ${esc(g).toUpperCase()}</div><div class="ig-cards">${integrations.filter((i) => i.group === g).map((i) => `
     <div class="ig-card ${i.live ? "on" : "off"}">

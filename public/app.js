@@ -13,10 +13,10 @@ const REASONS = {
   CANCELED_RECURRING_BILLING: ["SUBSCRIPTION CANCELLED", "cnp"],
 };
 const VERDICTS = {
-  FIGHT: { label: "FIGHT", action: "SUBMIT EVIDENCE", api: "provide-evidence", color: "#2bffb1" },
-  OFFER_PARTIAL_REFUND: { label: "PARTIAL REFUND", action: "SEND OFFER", api: "make-offer", color: "#9b7bff" },
-  ACCEPT_CLAIM: { label: "ACCEPT", action: "ACCEPT CLAIM", api: "accept-claim", color: "#ff4d6d" },
-  SEND_MESSAGE: { label: "REPLY", action: "SEND MESSAGE", api: "send-message", color: "#00e5ff" },
+  FIGHT: { label: "FIGHT", action: "SUBMIT EVIDENCE", api: "provide-evidence", color: "var(--green)" },
+  OFFER_PARTIAL_REFUND: { label: "PARTIAL REFUND", action: "SEND OFFER", api: "make-offer", color: "var(--violet)" },
+  ACCEPT_CLAIM: { label: "ACCEPT", action: "ACCEPT CLAIM", api: "accept-claim", color: "var(--red)" },
+  SEND_MESSAGE: { label: "REPLY", action: "SEND MESSAGE", api: "send-message", color: "var(--cyan)" },
 };
 const MODULES = {
   lookup_order: { icon: "🧾", name: "ORDER DB" },
@@ -27,9 +27,9 @@ const MODULES = {
   track_record: { icon: "🧠", name: "TRACK RECORD" },
 };
 const OUTCOMES = {
-  WON: { label: "WON", text: "PayPal ruled for you", color: "#2bffb1" },
-  SETTLED: { label: "SETTLED", text: "Buyer accepted your offer", color: "#9b7bff" },
-  LOST: { label: "LOST", text: "PayPal ruled for the buyer", color: "#ff4d6d" },
+  WON: { label: "WON", text: "PayPal ruled for you", color: "var(--green)" },
+  SETTLED: { label: "SETTLED", text: "Buyer accepted your offer", color: "var(--violet)" },
+  LOST: { label: "LOST", text: "PayPal ruled for the buyer", color: "var(--red)" },
 };
 
 const imgFor = (name = "") => {
@@ -110,7 +110,7 @@ function spark(seed, color) {
     y = Math.max(3, Math.min(23, y + Math.sin(seed * 7 + i * 1.7) * 6));
     return `${(i * 100) / 15},${y.toFixed(1)}`;
   }).join(" ");
-  return `<svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" vector-effect="non-scaling-stroke" opacity=".8"/></svg>`;
+  return `<svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="${pts}" fill="none" style="stroke:${color}" stroke-width="1.6" vector-effect="non-scaling-stroke" opacity=".8"/></svg>`;
 }
 
 function countUp(el, to, { prefix = "", suffix = "", decimals = 0 } = {}) {
@@ -132,10 +132,10 @@ function renderStats() {
   const saved = state.activity.reduce((s, a) => s + Number(a.saved || 0), 0);
   const soon = open.filter((d) => (daysLeft(d.sellerResponseDue) ?? 99) <= 5).length;
   const cards = [
-    ["open", "NEEDS RESPONSE", "⚠️", "#ffb547", open.length, {}],
-    ["stake", "MONEY AT STAKE", "💰", "#ff3df2", atStake, { prefix: "$", decimals: 2 }],
-    ["soon", "DUE IN ≤ 5 DAYS", "⏱️", "#ff4d6d", soon, {}],
-    ["saved", "REVENUE PROTECTED", "🛡️", "#2bffb1", saved, { prefix: "$", decimals: 2 }],
+    ["open", "NEEDS RESPONSE", "⚠️", "var(--amber)", open.length, {}],
+    ["stake", "MONEY AT STAKE", "💰", "var(--magenta)", atStake, { prefix: "$", decimals: 2 }],
+    ["soon", "DUE IN ≤ 5 DAYS", "⏱️", "var(--red)", soon, {}],
+    ["saved", "REVENUE PROTECTED", "🛡️", "var(--green)", saved, { prefix: "$", decimals: 2 }],
   ];
   if (!$("#stats").children.length) {
     $("#stats").innerHTML = cards
@@ -205,8 +205,7 @@ function renderBriefing() {
         <div>
           <div class="brief-kicker">☀️ MORNING BRIEFING</div>
           <h2>${open.length} disputes need you · ${money({ value: atStake })} at stake</h2>
-          <p class="muted">Next deadline: <b>${esc(next.buyerName ?? "")}</b>'s ${esc(next.item ?? "case")} in <b>${nextDays ?? "?"} day${nextDays === 1 ? "" : "s"}</b>.
-          ${all ? "Every case has a plan. Open one to review and approve it." : "Let the agent investigate every case at once. Nothing is sent to PayPal until you approve."}</p>
+          <p class="muted">Next deadline: <b>${esc(next.buyerName ?? "")}</b>'s ${esc(next.item ?? "case")} in <b>${nextDays ?? "?"} day${nextDays === 1 ? "" : "s"}</b>.</p>
         </div>
         <button class="cta" id="triage">${all ? "⟳ RE-CHECK ALL" : `⚡ TRIAGE ALL ${open.length} WITH AI`}</button>
       </div>
@@ -225,13 +224,16 @@ function renderBriefing() {
             <span class="bi"><b>${esc(d.item ?? d.id)}</b><small>${esc(d.buyerName ?? "")} · ${reasonPill(d.reason)}</small></span>
             <span class="bd ${days != null && days <= 5 ? "soon" : ""}">${days == null ? "" : `${days}d`}</span>
             <span class="ba">${money(d.amount)}</span>
-            <span class="bv" id="bv-${esc(d.id)}">${d.ai ? verdictChip(d.ai) : '<span class="muted">not checked</span>'}</span>
+            <span class="bv" id="bv-${esc(d.id)}">${d.ai ? verdictChip(d.ai) : '<span class="dash"></span>'}</span>
             <span class="bk ${d.ai && !Number(d.ai.saved) ? "muted" : ""}">${!d.ai ? "" : Number(d.ai.saved) ? `keeps ${money({ value: Number(d.ai.saved) })}` : "full refund"}</span>
           </button>`;
         }).join("")}
       </div>
     </div>`;
   $("#triage").onclick = triageAll;
+  // Count the expected-keep figure up when it changes.
+  const kb = $(".bs.keep b");
+  if (kb && state.lastKeep !== keepExp) { state.lastKeep = keepExp; countUp(kb, keepExp, { prefix: "$", decimals: 2 }); }
   document.querySelectorAll(".brow").forEach((b) => (b.onclick = () => selectDispute(b.dataset.id)));
 }
 
@@ -283,9 +285,9 @@ async function selectDispute(id) {
 function ring(days, total = 10) {
   const r = 38, c = 2 * Math.PI * r;
   const frac = days == null ? 0 : Math.max(0, Math.min(1, days / total));
-  const color = days == null ? "#7c8db5" : days <= 3 ? "#ff4d6d" : days <= 6 ? "#ffb547" : "#2bffb1";
-  return `<div class="ring"><svg width="92" height="92"><circle cx="46" cy="46" r="${r}" stroke="rgba(255,255,255,.08)" stroke-width="7" fill="none"/>
-    <circle cx="46" cy="46" r="${r}" stroke="${color}" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - frac)}" style="filter:drop-shadow(0 0 6px ${color})"/></svg>
+  const color = days == null ? "var(--muted)" : days <= 3 ? "var(--red)" : days <= 6 ? "var(--amber)" : "var(--green)";
+  return `<div class="ring"><svg width="92" height="92"><circle cx="46" cy="46" r="${r}" style="stroke:rgba(var(--glass-rgb),.08)" stroke-width="7" fill="none"/>
+    <circle cx="46" cy="46" r="${r}" stroke-width="7" fill="none" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - frac)}" style="stroke:${color};filter:drop-shadow(0 0 6px ${color})"/></svg>
     <div class="lbl"><div><b>${days == null ? "–" : Math.max(0, days)}</b>days left</div></div></div>`;
 }
 
@@ -297,7 +299,7 @@ function renderDetail({ withRec = true } = {}) {
       <img class="pic" src="${imgFor(name)}" alt="" />
       <div>
         <h2>${esc(name)}</h2>
-        <div class="sub">${esc(d.buyerName)} · CASE ${esc(d.id)}<br/>TXN ${esc(d.transactionId ?? "n/a")}</div>
+        <div class="sub">${esc(d.buyerName)} · <span class="case-id">${esc(d.id)}</span></div>
         <div class="pills">${reasonPill(d.reason)}<span class="pill stage">${esc(d.stage)}</span><span class="pill ${isDone(d.status) ? "status-done" : "stage"}">${esc(d.status.replaceAll("_", " "))}</span></div>
       </div>
       <div class="countdown"><div class="bigamt">${money(d.amount)}</div>${ring(daysLeft(d.sellerResponseDue))}</div>
@@ -305,12 +307,12 @@ function renderDetail({ withRec = true } = {}) {
 
     <div id="ruling"></div>
 
-    <div class="section-title">&gt; INTERCEPTED MESSAGES</div>
+    <div class="section-title">💬 BUYER SAYS</div>
     <div class="thread">
       ${d.messages.map((m) => `<div class="msg ${esc(m.by)}"><div class="avatar">${m.by === "BUYER" ? esc(initials(d.buyerName)) : m.by === "SELLER" ? "YOU" : "PP"}</div><div class="bubble"><div class="meta">${m.by === "BUYER" ? esc(d.buyerName) : esc(m.by)} · ${new Date(m.time).toLocaleString()}</div>${esc(m.content)}</div></div>`).join("") || `<p class="muted">No messages.</p>`}
     </div>
 
-    <div class="section-title">&gt; PHOTO EVIDENCE · AI VISION</div>
+    <div class="section-title">📷 PHOTO EVIDENCE</div>
     <div class="photos" id="photos"></div>
 
     <div id="nfc-tag"></div>
@@ -337,7 +339,7 @@ function renderTag() {
   if (!tag) {
     // No tag yet (for example, the order shipped before tags existed): offer to make one.
     if (!d.transactionId) return (el.innerHTML = "");
-    el.innerHTML = `<div class="section-title">&gt; PACKAGE TAG · NFC TAP-TO-CONFIRM</div>
+    el.innerHTML = `<div class="section-title">🏷️ PACKAGE TAG</div>
       <div class="nfc-card"><button class="mini-btn" id="nfc-create">🏷️ CREATE NFC TAG FOR THIS ORDER</button></div>`;
     $("#nfc-create").onclick = async () => {
       $("#nfc-create").disabled = true;
@@ -362,7 +364,7 @@ function renderTag() {
     : tag.buyerReportedProblem ? `<div class="nfc-flag warn">⚠ The buyer reported a problem when they tapped the package.</div>`
     : tag.buyerConfirmedOk ? `<div class="nfc-flag">✅ The buyer confirmed the order arrived OK.</div>`
     : "";
-  el.innerHTML = `<div class="section-title">&gt; PACKAGE TAG · NFC TAP-TO-CONFIRM</div>
+  el.innerHTML = `<div class="section-title">🏷️ PACKAGE TAG</div>
     <div class="nfc-card ${flag ? "strong" : ""}">${flag}${window.NFC.timeline(tag)}${packageTagUrl ? window.NFC.actions({ id: tag.tagId }, packageTagUrl, { localOnly: packageTagLocal }) : ""}</div>`;
   window.NFC.bind(el, toast);
 }
@@ -538,16 +540,19 @@ class WarRoom {
     const cols = Math.ceil(c.width / size);
     const drops = Array.from({ length: cols }, () => Math.random() * -50);
     const chars = "アイウエオカキクケコサシスセソ0123456789ABCDEF$€¥₿<>/{}";
+    const cs = getComputedStyle(document.documentElement);
+    const cyan = cs.getPropertyValue("--cyan").trim(), green = cs.getPropertyValue("--green").trim();
+    const fade = `rgba(${cs.getPropertyValue("--deep-rgb").trim()},0.12)`;
     let last = 0;
     const draw = (t) => {
       this.raf = requestAnimationFrame(draw);
       if (t - last < 45) return;
       last = t;
-      ctx.fillStyle = "rgba(2,5,10,0.12)";
+      ctx.fillStyle = fade;
       ctx.fillRect(0, 0, c.width, c.height);
       ctx.font = `${size}px JetBrains Mono, monospace`;
       drops.forEach((y, i) => {
-        ctx.fillStyle = Math.random() > 0.97 ? "#e6fff6" : i % 7 === 0 ? "#00e5ff" : "#2bffb1";
+        ctx.fillStyle = Math.random() > 0.97 ? "#ffffff" : i % 7 === 0 ? cyan : green;
         ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * size, y * size);
         drops[i] = y * size > c.height && Math.random() > 0.975 ? 0 : y + 1;
       });
@@ -671,7 +676,7 @@ function journeyTile(tracking, order) {
   if (!tracking) return `<div class="tile"><h5>📦 SHIPMENT</h5><p class="muted">No tracking on file.</p></div>`;
   const evs = tracking.events.length > 3 ? [tracking.events[0], tracking.events.at(-2), tracking.events.at(-1)] : tracking.events;
   const delivered = tracking.status === "DELIVERED";
-  const color = delivered ? "#2bffb1" : "#ffb547";
+  const color = delivered ? "var(--green)" : "var(--amber)";
   const pct = delivered ? 100 : 72;
   return `<div class="tile" style="--jc:${color}"><h5>🚚 PACKAGE JOURNEY · ${esc(order?.shipping?.carrier ?? "")}</h5>
     <div class="journey">
@@ -703,10 +708,10 @@ function buyerTile(customer, order, buyerName) {
   const meter = (label, val, max, color, text) => `<div class="meter" style="--mc:${color}"><div class="ml"><span>${label}</span><span>${text}</span></div><div class="mt"><div class="mf" style="width:${Math.max(4, Math.min(100, (val / max) * 100))}%"></div></div></div>`;
   return `<div class="tile"><h5>👤 BUYER INTEL</h5>
     <div class="buyer-id"><div class="av">${esc(initials(buyerName))}</div><div><div class="nm">${esc(buyerName)}</div><div class="em">${esc(order?.customerEmail ?? "")}</div></div></div>
-    ${meter("ACCOUNT AGE", customer.accountAgeDays, 1500, "#00e5ff", `${customer.accountAgeDays}d`)}
-    ${meter("ORDERS", customer.orders, 10, "#9b7bff", customer.orders)}
-    ${meter("PRIOR DISPUTES", customer.priorDisputes, 3, "#ff4d6d", customer.priorDisputes)}
-    ${meter("TRUST SCORE", trust, 100, trust > 60 ? "#2bffb1" : trust > 35 ? "#ffb547" : "#ff4d6d", Math.round(trust))}
+    ${meter("ACCOUNT AGE", customer.accountAgeDays, 1500, "var(--cyan)", `${customer.accountAgeDays}d`)}
+    ${meter("ORDERS", customer.orders, 10, "var(--violet)", customer.orders)}
+    ${meter("PRIOR DISPUTES", customer.priorDisputes, 3, "var(--red)", customer.priorDisputes)}
+    ${meter("TRUST SCORE", trust, 100, trust > 60 ? "var(--green)" : trust > 35 ? "var(--amber)" : "var(--red)", Math.round(trust))}
   </div>`;
 }
 
@@ -720,13 +725,13 @@ function renderRecommendation(animate) {
   $("#rec").innerHTML = `
     <div class="rec" style="--vc:${v.color}">
       <div class="rec-head">
-        <div class="gauge"><svg width="150" height="150"><circle cx="75" cy="75" r="${r}" stroke="rgba(255,255,255,.07)" stroke-width="12" fill="none"/>
-          <circle class="arc" cx="75" cy="75" r="${r}" stroke="${v.color}" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${animate ? c : c * (1 - pct / 100)}"/></svg>
+        <div class="gauge"><svg width="150" height="150"><circle cx="75" cy="75" r="${r}" style="stroke:rgba(var(--glass-rgb),.07)" stroke-width="12" fill="none"/>
+          <circle class="arc" cx="75" cy="75" r="${r}" style="stroke:${v.color}" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${animate ? c : c * (1 - pct / 100)}"/></svg>
           <div class="val"><div><b id="gauge-num">${animate ? 0 : pct}%</b><span>WIN ODDS</span></div></div></div>
         <div>
           <div class="stamp">${v.label}</div>
           <div class="headline">${esc(rec.headline)}</div>
-          <div class="saved">💰 KEEPS <b>$${esc(rec.money_saved_estimate)}</b> vs. full refund · engine: ${esc(rec.engine ?? "AI")}</div>
+          <div class="saved">💰 KEEPS <b>$${esc(rec.money_saved_estimate)}</b> vs. full refund</div>
           ${calibrationStrip(rec.calibration)}
         </div>
       </div>
@@ -736,20 +741,21 @@ function renderRecommendation(animate) {
         ${buyerTile(intel?.customer, intel?.order, d.buyerName)}
       </div>
       <div class="rec-body">
-        <div><h5>&gt; WHY</h5><ul class="reasons">${rec.reasoning.map((x, i) => `<li style="animation-delay:${0.3 + i * 0.12}s">${esc(x)}</li>`).join("")}</ul></div>
+        <div><h5>WHY</h5><ul class="reasons">${rec.reasoning.slice(0, 3).map((x, i) => `<li style="animation-delay:${0.3 + i * 0.12}s">${esc(x)}</li>`).join("")}</ul>
+          ${rec.reasoning.length > 3 ? `<details class="more"><summary>${rec.reasoning.length - 3} more reasons</summary><ul class="reasons">${rec.reasoning.slice(3).map((x) => `<li>${esc(x)}</li>`).join("")}</ul></details>` : ""}</div>
         <div>
-          ${rec.evidence?.length ? `<h5>&gt; EVIDENCE PACKET</h5><ul class="evidence">${rec.evidence.map((e) => `<li><code>${esc(e.evidence_type)}</code><br/><b>${esc(e.title)}</b><br/><span class="muted">${esc(e.detail)}</span></li>`).join("")}</ul>` : ""}
-          ${rec.risk_flags?.length ? `<h5 style="margin-top:14px">&gt; RISK FLAGS</h5><ul class="reasons flags">${rec.risk_flags.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+          ${rec.evidence?.length ? `<h5>EVIDENCE PACKET</h5><ul class="ev-chips">${rec.evidence.map((e) => `<li title="${esc(e.detail)}"><span>✓</span>${esc(e.title)}</li>`).join("")}</ul>` : ""}
+          ${rec.risk_flags?.length ? `<h5 style="margin-top:14px">WATCH OUT</h5><ul class="reasons flags">${rec.risk_flags.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
         </div>
         <div class="full">
-          <h5>&gt; ${label} (editable)</h5>
-          <textarea id="response-text">${esc(rec.response_text)}</textarea>
+          <details class="more note-edit"><summary>✎ Review ${label === "MESSAGE → BUYER" ? "the message to the buyer" : "what we send to PayPal"}</summary>
+          <textarea id="response-text">${esc(rec.response_text)}</textarea></details>
         </div>
         <div class="full approve-row">
           ${rec.verdict === "OFFER_PARTIAL_REFUND" ? `<label style="font-family:var(--mono);font-size:12px">REFUND $ <input class="offer-input" id="offer-amount" value="${esc(rec.offer_amount ?? "")}" /></label>` : ""}
           <button class="cta go" id="approve" ${done ? "disabled" : ""}>${done ? "✓ SENT" : `✓ APPROVE · ${v.action}`}</button>
           <button class="cta ghost" id="open-dossier">📄 EVIDENCE DOSSIER</button>
-          <span class="api-note">→ <code>POST /v1/customer/disputes/{id}/${v.api}</code>${rec.verdict === "FIGHT" ? ` · 📎 dossier PDF${sellerPhotoCount() ? ` + ${sellerPhotoCount()} photo(s)` : ""} attached` : ""}</span>
+          ${rec.verdict === "FIGHT" ? `<span class="api-note">📎 Dossier PDF${sellerPhotoCount() ? ` + ${sellerPhotoCount()} photo${sellerPhotoCount() === 1 ? "" : "s"}` : ""} attached</span>` : ""}
         </div>
       </div>
     </div>
@@ -774,7 +780,7 @@ function calibrationStrip(cal) {
 
 // ---------------- approve + transmit ----------------
 function burst(x, y) {
-  const colors = ["#2bffb1", "#00e5ff", "#ff3df2", "#ffb547", "#9b7bff"];
+  const colors = ["var(--green)", "var(--cyan)", "var(--magenta)", "var(--amber)", "var(--violet)"];
   for (let i = 0; i < 46; i++) {
     const p = document.createElement("div");
     p.className = "burst";
@@ -857,10 +863,9 @@ function photoCard(p) {
     <div class="photo-body">
       ${a
         ? `<div class="cap">${esc(a.caption)}</div>
-           <div class="muted" style="margin-top:4px">${esc(a.summary)}</div>
-           <ul>${a.findings.map((f, i) => `<li style="animation-delay:${i * 0.1}s">${esc(f)}</li>`).join("")}</ul>
+           <details class="more"><summary>${a.findings.length} findings</summary><ul>${a.findings.map((f) => `<li>${esc(f)}</li>`).join("")}</ul></details>
            <div class="conf" style="--cc:${a.favors === "SELLER" ? "var(--green)" : a.favors === "BUYER" ? "var(--red)" : "var(--amber)"}"><div style="width:${a.confidence}%"></div></div>
-           <div class="muted" style="font-family:var(--mono);font-size:10px;margin-top:4px">CONFIDENCE ${a.confidence}% · ${esc(a.engine ?? "")}</div>`
+           <div class="muted" style="font-family:var(--mono);font-size:10px;margin-top:4px">CONFIDENCE ${a.confidence}%</div>`
         : `<div class="cap">${esc(p.label)}</div>
            <div class="photo-actions"><button class="mini-btn scan-btn">🔍 SCAN WITH AI VISION</button></div>`}
     </div>
@@ -874,7 +879,7 @@ function renderPhotos() {
   box.innerHTML =
     photos.map(photoCard).join("") +
     `<label class="upload-card" id="upload-card"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden id="upload-input" />
-       <div><div class="big-ico">📤</div><b>Add photo</b></div></label>`;
+       <div><div class="big-ico">＋</div><b>Add photo</b></div></label>`;
   box.querySelectorAll(".scan-btn").forEach((b) => (b.onclick = () => scanPhoto(b.closest(".photo-card").dataset.pid)));
   const input = $("#upload-input");
   input.onchange = () => input.files[0] && uploadPhoto(input.files[0]);
@@ -1248,5 +1253,8 @@ async function openFromHash() {
   await selectDispute(id);
   await loadList();
 }
+// Staggered entrance on first load only (lists re-render often after that).
+document.body.classList.add("intro");
+setTimeout(() => document.body.classList.remove("intro"), 2600);
 window.addEventListener("hashchange", openFromHash);
 await openFromHash();
