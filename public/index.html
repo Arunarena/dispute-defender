@@ -26,6 +26,7 @@
         </div>
         <div>
           <h1 class="glitch" data-text="DISPUTE DEFENDER">DISPUTE DEFENDER</h1>
+          <div class="kept" id="kept" title="Money protected from disputes"><span class="k-ico">🛡️</span><b id="kept-v">$0.00</b><small>protected</small></div>
         </div>
       </div>
       <nav class="tabs" id="tabs">
@@ -40,6 +41,8 @@
       <button class="sim-btn install-btn hidden" id="install" title="Install Dispute Defender as an app">⬇ Install app</button>
       <a class="shop-link" href="/shop.html" target="dd-shop">🛍️ Demo shop</a>
     </header>
+
+    <div class="billboard" id="billboard"></div>
 
     <div class="view" id="view-disputes">
     <section class="stats" id="stats"></section>
@@ -101,14 +104,15 @@
     <div class="copilot hidden" id="copilot">
       <div class="cp-head">
         <div class="cp-title"><span class="dot live"></span> DEFENDER COPILOT</div>
+        <select class="cp-voices" id="cp-voices" title="Voice"></select>
         <button class="cp-icon" id="cp-voice" title="Speak replies aloud">🔊</button>
         <button class="cp-icon" id="cp-close" title="Close (Esc)">✕</button>
       </div>
-      <div class="cp-wave" id="cp-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="cp-wave" id="cp-wave" title="Tap to interrupt"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span class="cp-status" id="cp-status"></span></div>
       <div class="cp-log" id="cp-log"></div>
       <div class="cp-chips" id="cp-chips"></div>
       <form class="cp-input" id="cp-form">
-        <button type="button" class="cp-mic" id="cp-mic" title="Hold a conversation by voice">🎙️</button>
+        <button type="button" class="cp-talk" id="cp-talk" title="Hands-free conversation">🎙️ Talk</button>
         <input id="cp-text" placeholder="Ask Defender…" autocomplete="off" />
         <button type="submit" class="cp-send">➤</button>
       </form>
@@ -196,5 +200,6 @@
     <script src="/app.js" type="module"></script>
     <script src="/views.js" type="module"></script>
     <script src="/copilot.js" type="module"></script>
+    <script src="/billboard.js" type="module"></script>
   </body>
 </html>

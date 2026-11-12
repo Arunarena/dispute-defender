@@ -34,6 +34,10 @@ const OUTCOMES = {
 
 const imgFor = (name = "") => {
   const n = name.toLowerCase();
+  if (n.includes("plush") || n.includes("mochi")) return "/img/plush.svg";
+  if (n.includes("strawberry")) return "/img/strawberry-mug.svg";
+  if (n.includes("bow headphone")) return "/img/bow-headphones.svg";
+  if (n.includes("heart") && n.includes("backpack")) return "/img/heart-backpack.svg";
   if (n.includes("headphone") || n.includes("headset")) return "/img/headphones.svg";
   if (n.includes("mug")) return "/img/mug.svg";
   if (n.includes("watch")) return "/img/watch.svg";
@@ -143,6 +147,7 @@ function renderStats() {
       .join("");
   }
   for (const [k, , , , val, opts] of cards) countUp($(`#stat-${k}`), val, opts);
+  updateKept(saved);
 }
 
 function renderList() {
@@ -244,15 +249,18 @@ async function triageAll() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-s"></span> INVESTIGATING…';
   document.querySelectorAll(".brow .bv").forEach((el) => (el.innerHTML = '<span class="spinner-s"></span>'));
+  const think = thinkPanel();
   let n = 0, total = 0;
   await new Promise((resolve) => {
     const es = new EventSource("/api/triage");
     es.onmessage = (m) => {
       const ev = JSON.parse(m.data);
-      if (ev.type === "start") total = ev.total;
+      if (ev.type === "start") { total = ev.total; think.start(total); }
+      if (ev.type === "step") think.step(ev);
       if (ev.type === "item") {
         n++;
         btn.innerHTML = `<span class="spinner-s"></span> ${n} / ${total} DONE`;
+        think.item(ev, n, total);
         const el = document.getElementById(`bv-${ev.id}`);
         if (el) el.innerHTML = ev.error ? `<span class="muted">⚠ ${esc(ev.error)}</span>` : verdictChip(ev);
         el?.closest(".brow")?.classList.add("flash");
@@ -261,9 +269,112 @@ async function triageAll() {
     };
     es.onerror = () => { es.close(); resolve(); };
   });
+  think.finish(n);
+  window.dispatchEvent(new CustomEvent("dd-event", { detail: { type: "triage_done", n } }));
+  await sleep(1400); // let the last lines land before the briefing redraws
   state.triaging = false;
   await loadList();
   toast("🧭 TRIAGE COMPLETE", `${n} disputes have a plan. Open any case to review and approve it.`, "good");
+}
+
+// Live feed under the briefing header: one line per thing the agent checks.
+const STEP_ICON = { lookup_order: "🧾", track_shipment: "🚚", get_customer_history: "👤", get_store_policies: "📜", check_package_tag: "🏷️", inspect_photos: "📸", track_record: "🧠" };
+function thinkPanel() {
+  const box = document.createElement("div");
+  box.className = "think";
+  box.innerHTML = `<div class="think-head"><span class="think-dot"></span><b>Agent is investigating</b><span class="think-n"></span></div>
+    <div class="think-bar"><i></i></div><ul class="think-feed"></ul>`;
+  $(".brief-head")?.after(box);
+  const feed = box.querySelector(".think-feed");
+  const itemName = (id) => state.disputes.find((d) => d.id === id)?.item ?? id;
+  const add = (html, cls = "") => {
+    feed.insertAdjacentHTML("afterbegin", `<li class="${cls}">${html}</li>`);
+    while (feed.children.length > 5) feed.lastElementChild.remove();
+  };
+  return {
+    start(total) { box.querySelector(".think-n").textContent = `0 / ${total}`; },
+    step(ev) { add(`<span class="ti">${STEP_ICON[ev.name] ?? "•"}</span><b>${esc(itemName(ev.id))}</b><span class="tt">${esc(ev.text)}</span>`); },
+    item(ev, n, total) {
+      box.querySelector(".think-n").textContent = `${n} / ${total}`;
+      box.querySelector(".think-bar i").style.width = `${(n / total) * 100}%`;
+      if (ev.error) return add(`<span class="ti">⚠️</span><b>${esc(itemName(ev.id))}</b><span class="tt">${esc(ev.error)}</span>`, "bad");
+      const v = VERDICTS[ev.verdict];
+      add(`<span class="ti">✅</span><b>${esc(itemName(ev.id))}</b><span class="tv" style="--vc:${v?.color}">${esc(v?.label ?? ev.verdict)}${ev.verdict === "FIGHT" && ev.win != null ? ` · ${ev.win}%` : ""}</span>`, "fin");
+    },
+    finish(n) {
+      box.classList.add("finished");
+      box.querySelector(".think-head b").textContent = `Done: ${n} plan${n === 1 ? "" : "s"} ready`;
+    },
+  };
+}
+
+// ---------------- money ticker + celebrations ----------------
+let keptShown = null;
+async function updateKept(total) {
+  const el = $("#kept-v");
+  if (!el) return;
+  // Wait for the "transmitting" overlay to close so the bump is visible.
+  for (let i = 0; i < 40 && keptShown !== null && !$("#transmit")?.classList.contains("hidden"); i++) await sleep(200);
+  if (keptShown === null) { keptShown = total; el.dataset.v = total; el.textContent = money({ value: total }); return; }
+  if (total === keptShown) return;
+  const gain = total - keptShown;
+  keptShown = total;
+  countUp(el, total, { prefix: "$", decimals: 2 });
+  if (gain <= 0) return;
+  const pill = $("#kept");
+  pill.classList.remove("bump"); void pill.offsetWidth; pill.classList.add("bump");
+  const f = document.createElement("span");
+  f.className = "kept-float";
+  f.textContent = `+${money({ value: gain })}`;
+  pill.appendChild(f);
+  setTimeout(() => f.remove(), 1600);
+  chime();
+}
+
+// Two soft notes, like a register. Quiet on purpose.
+let audioCtx;
+function chime() {
+  try {
+    audioCtx ??= new AudioContext();
+    const t = audioCtx.currentTime;
+    // Kawaii gets a three-note sparkle instead of the register sound.
+    const notes = window.DDTheme?.isKawaii() ? [[1567.98, 0], [2093, 0.07], [2637, 0.14]] : [[1318.5, 0], [1975.5, 0.09]];
+    notes.forEach(([hz, at]) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = "sine"; o.frequency.value = hz;
+      g.gain.setValueAtTime(0.0001, t + at);
+      g.gain.exponentialRampToValueAtTime(0.06, t + at + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.35);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t + at); o.stop(t + at + 0.4);
+    });
+  } catch {}
+}
+
+// Full-screen moment when PayPal rules for us.
+function celebrate(entry) {
+  const won = entry.outcome === "WON";
+  const m = OUTCOMES[entry.outcome];
+  const cute = window.DDTheme?.isKawaii();
+  const el = document.createElement("div");
+  el.className = `celebrate ${won ? "won" : "settled"}`;
+  const icon = cute ? `<img src="${document.querySelector("link[rel=icon]").getAttribute("href").replace(/shield\.svg$/, "mochi.svg")}" alt="" />` : won ? "🏆" : "🤝";
+  const title = cute ? (won ? "YAY! WE WON 💖" : "SWEET DEAL 🎀") : won ? "DISPUTE WON" : "SETTLED";
+  if (cute) setTimeout(() => window.DDTheme.peek(won ? "We did it! 🎀💖" : "Fair and sweet 🍓"), 900);
+  el.innerHTML = `<div class="cel-rays"></div><div class="cel-card">
+      <div class="cel-trophy">${icon}</div>
+      <div class="cel-title">${title}</div>
+      <div class="cel-amt">+${money({ value: Number(entry.kept) })}</div>
+      <div class="cel-sub">${esc(m.text)}</div></div>`;
+  document.body.appendChild(el);
+  const fire = (x, y) => burst(x, y);
+  fire(innerWidth / 2, innerHeight / 2);
+  setTimeout(() => fire(innerWidth * 0.3, innerHeight * 0.4), 180);
+  setTimeout(() => fire(innerWidth * 0.7, innerHeight * 0.4), 320);
+  chime(); setTimeout(chime, 260);
+  const close = () => { el.classList.add("out"); setTimeout(() => el.remove(), 400); };
+  el.onclick = close;
+  setTimeout(close, 2600);
 }
 
 // ---------------- detail ----------------
@@ -442,10 +553,8 @@ async function simulateRuling(id) {
       state.current = await api(`/api/disputes/${encodeURIComponent(id)}`);
       renderDetail();
     }
-    if ((entry?.outcome ?? outcome) !== "LOST") {
-      const r = $("#ruling")?.getBoundingClientRect();
-      if (r) burst(r.left + 80, r.top + 30);
-    }
+    const result = entry ?? (typeof outcome === "object" ? outcome : null);
+    if (result && result.outcome !== "LOST") celebrate(result);
     await loadList();
   } catch (e) {
     toast("RULING FAILED", e.message, "warn");
@@ -781,9 +890,12 @@ function calibrationStrip(cal) {
 // ---------------- approve + transmit ----------------
 function burst(x, y) {
   const colors = ["var(--green)", "var(--cyan)", "var(--magenta)", "var(--amber)", "var(--violet)"];
-  for (let i = 0; i < 46; i++) {
+  const cute = window.DDTheme?.isKawaii();
+  const sweets = ["🎀", "💖", "🌸", "⭐", "🍓", "💗", "✨"];
+  for (let i = 0; i < (cute ? 30 : 46); i++) {
     const p = document.createElement("div");
-    p.className = "burst";
+    p.className = cute ? "burst emoji" : "burst";
+    if (cute) p.textContent = sweets[i % sweets.length];
     const a = Math.random() * Math.PI * 2, dist = 80 + Math.random() * 200;
     p.style.cssText = `left:${x}px;top:${y}px;background:${colors[i % colors.length]};--dx:${Math.cos(a) * dist}px;--dy:${Math.sin(a) * dist}px`;
     document.body.appendChild(p);

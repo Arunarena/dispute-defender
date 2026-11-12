@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
+  <defs><linearGradient id="hbBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3d6"/><stop offset="1" stop-color="#ffc2da"/></linearGradient></defs>
+  <rect width="160" height="160" rx="24" fill="url(#hbBg)"/>
+  <ellipse cx="80" cy="140" rx="44" ry="6" fill="#c2185b" opacity=".18"/>
+  <path d="M62 40 a18 18 0 0 1 36 0" fill="none" stroke="#3b2a33" stroke-width="6"/>
+  <rect x="36" y="38" width="88" height="96" rx="30" fill="#ff8fb8" stroke="#3b2a33" stroke-width="3"/>
+  <rect x="48" y="92" width="64" height="34" rx="14" fill="#ffc2da" stroke="#3b2a33" stroke-width="2.5"/>
+  <path d="M80 82 c-6 -12 -24 -6 -18 7 c3 7 18 16 18 16 s15 -9 18 -16 c6 -13 -12 -19 -18 -7z" fill="#e8344e" stroke="#3b2a33" stroke-width="2.5"/>
+  <circle cx="72" cy="80" r="2.5" fill="#fff" opacity=".8"/>
+  <path d="M60 109 h40" stroke="#3b2a33" stroke-width="2" stroke-dasharray="4 4"/>
+  <path d="M132 28 l3 7 l7 3 l-7 3 l-3 7 l-3 -7 l-7 -3 l7 -3z" fill="#fff"/>
+  <path d="M24 56 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2z" fill="#fff" opacity=".85"/>
+</svg>

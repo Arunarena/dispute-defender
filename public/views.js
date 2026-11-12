@@ -7,6 +7,10 @@ const usd = (n) => `$${Number(n).toLocaleString("en-US", { minimumFractionDigits
 const usd0 = (n) => `$${Math.round(Number(n)).toLocaleString("en-US")}`;
 const imgFor = (name = "") => {
   const n = name.toLowerCase();
+  if (n.includes("plush") || n.includes("mochi")) return "/img/plush.svg";
+  if (n.includes("strawberry")) return "/img/strawberry-mug.svg";
+  if (n.includes("bow headphone")) return "/img/bow-headphones.svg";
+  if (n.includes("heart") && n.includes("backpack")) return "/img/heart-backpack.svg";
   if (n.includes("headphone") || n.includes("headset")) return "/img/headphones.svg";
   if (n.includes("mug")) return "/img/mug.svg";
   if (n.includes("watch")) return "/img/watch.svg";

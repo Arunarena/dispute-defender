@@ -61,6 +61,11 @@ const SHOP_ITEMS = {
   "TRL-40": { name: "Trailblazer Hiking Backpack 40L", sku: "TRL-40", price: "149.00" },
   "MRN-THROW": { name: "Merino Wool Throw Blanket", sku: "MRN-THROW", price: "98.00" },
   "BREW-1L": { name: "Cold Brew Coffee Maker", sku: "BREW-1L", price: "39.99" },
+  // Kawaii collection
+  "MOCHI-PL": { name: "Mochi Kitty Plush", sku: "MOCHI-PL", price: "34.00" },
+  "STRAW-MUG": { name: "Strawberry Milk Mug", sku: "STRAW-MUG", price: "22.00" },
+  "BOW-HP": { name: "Pink Bow Headphones", sku: "BOW-HP", price: "79.00" },
+  "HEART-BP": { name: "Heart Charm Mini Backpack", sku: "HEART-BP", price: "58.00" },
 };
 
 const publish = (event) => bus.emit("event", { ...event, time: new Date().toISOString() });
@@ -312,6 +317,25 @@ app.get("/api/disputes/:id/analyze", async (req, res) => {
   res.end();
 });
 
+// One plain-language line per agent lookup, shown live during triage.
+function finding(name, r) {
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  switch (name) {
+    case "lookup_order": return r ? `Found the order${r.shipping?.carrier ? `, shipped ${r.shipping.carrier}` : ""}` : "No matching order on file";
+    case "track_shipment": return r?.status ? `Tracking says ${r.status.toLowerCase().replace(/_/g, " ")}` : "No tracking found";
+    case "get_customer_history": return r ? `Buyer has ${plural(r.orders ?? 0, "order")}, ${plural(r.priorDisputes ?? 0, "past dispute")}` : "New buyer, no history";
+    case "get_store_policies": return "Checked our store policy";
+    case "check_package_tag": return r?.taps?.length ? `Package tag was tapped ${plural(r.taps.length, "time")}` : "Package tag not tapped yet";
+    case "inspect_photos": {
+      const p = r?.photos ?? [];
+      const top = p.find((x) => x.caption);
+      return top ? `Photo: ${top.caption}` : `Looked at ${plural(p.length, "photo")}`;
+    }
+    case "track_record": return r?.label ? `Compared with past cases: ${r.label}` : null;
+    default: return null;
+  }
+}
+
 // Morning triage: runs the agent on every open dispute (a few at a time) and streams one result per case.
 // Cases already analyzed reuse their plan. Nothing is sent to PayPal here.
 app.get("/api/triage", async (req, res) => {
@@ -324,7 +348,13 @@ app.get("/api/triage", async (req, res) => {
       for (let d; (d = queue.shift()); ) {
         try {
           const dispute = await loadDispute(d.id);
-          const rec = recommendations.get(d.id) ?? (await runAgent(dispute, () => {}));
+          // Stream a short finding per lookup so the screen can show the agent thinking.
+          const think = (ev) => {
+            if (ev.type !== "tool_result") return;
+            const text = finding(ev.name, ev.result);
+            if (text) emit({ type: "step", id: d.id, name: ev.name, text });
+          };
+          const rec = recommendations.get(d.id) ?? (await runAgent(dispute, think));
           emit({ type: "item", id: d.id, verdict: rec.verdict, win: rec.win_likelihood, saved: rec.money_saved_estimate, offer: rec.offer_amount, headline: rec.headline });
         } catch (err) {
           emit({ type: "item", id: d.id, error: err.message });

@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
     <link rel="icon" href="/img/shield.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/styles.css" />
+    <script src="/theme.js"></script>
   </head>
   <body>
     <div class="grid-bg"></div>
@@ -29,7 +30,7 @@
       </div>
     </div>
     <script type="module">
-      const img = { "AUR-ANC-01": "headphones", "MUG-SET-4": "mug", "TOTE-2": "tote", "TRL-40": "backpack", "MRN-THROW": "blanket", "BREW-1L": "coffee" };
+      const img = { "AUR-ANC-01": "headphones", "MUG-SET-4": "mug", "TOTE-2": "tote", "TRL-40": "backpack", "MRN-THROW": "blanket", "BREW-1L": "coffee", "MOCHI-PL": "plush", "STRAW-MUG": "strawberry-mug", "BOW-HP": "bow-headphones", "HEART-BP": "heart-backpack" };
       const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
       const config = await (await fetch("/api/config")).json();
       const { items } = await (await fetch("/api/shop/items")).json();
