@@ -42,6 +42,7 @@
       </div>
       <nav class="tabs" id="tabs">
         <button class="tab active" data-view="disputes">⚔️ Disputes</button>
+        <button class="tab" data-view="cases">📋 Cases</button>
         <button class="tab" data-view="radar">🛰️ Risk Radar</button>
         <button class="tab" data-view="insights">📊 Insights</button>
         <button class="tab" data-view="track">🧠 Track Record</button>
@@ -97,6 +98,9 @@
       </section>
     </main>
     </div>
+
+    <!-- Cases: every dispute in an AG Grid table -->
+    <div class="view hidden" id="view-cases"></div>
 
     <!-- Risk Radar: score orders before they ship -->
     <div class="view hidden" id="view-radar"></div>
@@ -212,5 +216,7 @@
     <script src="/views.js" type="module"></script>
     <script src="/copilot.js" type="module"></script>
     <script src="/billboard.js" type="module"></script>
+    <script src="/vendor/ag-grid-community.min.js" defer></script>
+    <script src="/cases.js" type="module"></script>
   </body>
 </html>

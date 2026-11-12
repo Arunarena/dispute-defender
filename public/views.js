@@ -27,8 +27,9 @@ const imgFor = (name = "") => {
 let current = "disputes";
 function showView(view) {
   current = view;
-  for (const v of ["disputes", "radar", "insights", "track", "integrations"]) $(`#view-${v}`).classList.toggle("hidden", v !== view);
+  for (const v of ["disputes", "cases", "radar", "insights", "track", "integrations"]) $(`#view-${v}`).classList.toggle("hidden", v !== view);
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === view));
+  if (view === "cases") window.DDCases?.open();
   if (view === "radar") openRadar();
   if (view === "insights") openInsights();
   if (view === "track") openTrack();

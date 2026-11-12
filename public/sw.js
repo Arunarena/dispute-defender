@@ -1,8 +1,8 @@
 // Service worker for the installable app. Pages and scripts load from the network first,
 // with a cached copy as the offline fallback. API calls, tag pages and uploads are never cached:
 // dispute data must always be live.
-const CACHE = "defender-v3";
-const SHELL = ["/", "/styles.css", "/app.js", "/views.js", "/copilot.js", "/nfc.js", "/theme.js", "/billboard.js", "/passkey.js", "/img/shield.svg", "/img/icon-192.png", "/img/app-icon.svg", "/manifest.webmanifest"];
+const CACHE = "defender-v4";
+const SHELL = ["/", "/styles.css", "/app.js", "/views.js", "/copilot.js", "/nfc.js", "/theme.js", "/billboard.js", "/cases.js", "/vendor/ag-grid-community.min.js", "/passkey.js", "/img/shield.svg", "/img/icon-192.png", "/img/app-icon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

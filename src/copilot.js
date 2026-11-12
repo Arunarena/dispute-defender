@@ -22,7 +22,7 @@ function buildTools(ctx, actions) {
     betaZodTool({ name: "open_dispute", description: "Show a dispute on screen.", inputSchema: z.object({ dispute_id: z.string() }), run: async ({ dispute_id }) => act("open_dispute", { id: dispute_id }) }),
     betaZodTool({ name: "run_investigation", description: "Open a dispute and start the AI investigation on screen. The seller reviews and approves the result.", inputSchema: z.object({ dispute_id: z.string() }), run: async ({ dispute_id }) => act("analyze", { id: dispute_id }) }),
     betaZodTool({ name: "open_negotiation", description: "Open the negotiation arena for an inquiry-stage dispute.", inputSchema: z.object({ dispute_id: z.string() }), run: async ({ dispute_id }) => act("negotiate", { id: dispute_id }) }),
-    betaZodTool({ name: "show_view", description: "Switch the main screen: disputes, radar (Risk Radar), insights, track (Track Record: prediction accuracy and what the agent learned from past PayPal rulings), or integrations (which outside APIs are live: PayPal tracking/refunds/transaction search, Shippo, Google address check, Slack/Discord/Zapier alerts, deadline calendar).", inputSchema: z.object({ view: z.enum(["disputes", "radar", "insights", "track", "integrations"]) }), run: async ({ view }) => act("view", { view }) }),
+    betaZodTool({ name: "show_view", description: "Switch the main screen: disputes, cases (every dispute in one sortable table with the AI plan, win odds and expected keep), radar (Risk Radar), insights, track (Track Record: prediction accuracy and what the agent learned from past PayPal rulings), or integrations (which outside APIs are live: PayPal tracking/refunds/transaction search, Shippo, Google address check, Slack/Discord/Zapier alerts, deadline calendar).", inputSchema: z.object({ view: z.enum(["disputes", "cases", "radar", "insights", "track", "integrations"]) }), run: async ({ view }) => act("view", { view }) }),
     betaZodTool({ name: "set_autopilot", description: "Turn Autopilot on or off.", inputSchema: z.object({ enabled: z.boolean() }), run: async ({ enabled }) => act("autopilot", { enabled }) }),
     betaZodTool({ name: "triage_all", description: "Run the AI investigation on every open dispute at once and show the morning briefing with a plan for each. Nothing is sent to PayPal.", inputSchema: z.object({}), run: async () => act("triage") }),
     betaZodTool({ name: "simulate_dispute", description: "Simulate a new dispute arriving from PayPal (demo).", inputSchema: z.object({}), run: async () => act("simulate") }),
@@ -177,6 +177,7 @@ async function scripted(history, ctx, actions) {
     const tr = (await ctx.overview()).trackRecord;
     return `My plans worked in ${tr.planSuccess}% of ${tr.resolved} past cases, and learning from PayPal's rulings cut my wrong calls by ${tr.predictionError.improvement}%. I've got the details on screen.`;
   }
+  if (/(table|cases|spreadsheet|grid|all disputes|list)/.test(t) && !d) { actions.push({ type: "view", view: "cases" }); return "Here's every case in one table. You can sort, filter, search or export it."; }
   if (/insight|losing|leak|report|why.*(money|lose)/.test(t)) { actions.push({ type: "view", view: "insights" }); return "Here's where disputes are costing you, and what to fix first."; }
 
   // ---- one case ----
