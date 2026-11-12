@@ -323,6 +323,8 @@ async function updateKept(total) {
   if (gain <= 0) return;
   const pill = $("#kept");
   pill.classList.remove("bump"); void pill.offsetWidth; pill.classList.add("bump");
+  const logo = $(".shield");
+  if (logo) { logo.classList.remove("zap"); void logo.offsetWidth; logo.classList.add("zap"); }
   const f = document.createElement("span");
   f.className = "kept-float";
   f.textContent = `+${money({ value: gain })}`;
