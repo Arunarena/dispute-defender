@@ -94,27 +94,62 @@ $("#cp-voices").onchange = (e) => {
   say("Hi! This is how I sound now.");
 };
 
-// Speak sentence by sentence: more natural pauses, and long replies don't get cut off.
+// Speak a reply. Short replies go out as one utterance (no loading gaps between sentences);
+// long ones in ~200-character pieces, because Chrome cuts off very long utterances.
+// It's "done" only when the browser says so, or when nothing is playing or queued anymore.
+let utterances = []; // kept referenced: Chrome drops events for utterances it garbage-collects
+function chunks(text) {
+  if (text.length <= 220) return [text];
+  const out = [];
+  let cur = "";
+  for (const s of text.match(/[^.!?]+[.!?]*\s*/g) ?? [text]) {
+    if ((cur + s).length > 200 && cur) { out.push(cur.trim()); cur = ""; }
+    cur += s;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
 function say(text) {
   return new Promise((resolve) => {
     if (!speak || !("speechSynthesis" in window)) return resolve();
     speechSynthesis.cancel();
-    const clean = text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "").replace(/\$(\d+)\.00\b/g, "$$$1");
-    const parts = clean.match(/[^.!?]+[.!?]*/g)?.map((s) => s.trim()).filter(Boolean) ?? [clean];
-    let left = parts.length;
+    const clean = text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "").replace(/\$(\d+)\.00\b/g, "$$$1").trim();
+    if (!clean) return resolve();
+    const parts = chunks(clean);
+    let left = parts.length, started = false, finished = false, idle = 0;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      clearInterval(poll); clearInterval(keepAlive);
+      setWave(""); resolve();
+    };
     setWave("speaking");
-    // Some browsers never fire "end"; don't wait forever.
-    const words = clean.split(/s+/).length;
-    const guard = setTimeout(() => { left = 0; setWave(""); resolve(); }, 2500 + words * 450);
-    for (const p of parts) {
+    utterances = parts.map((p) => {
       const u = new SpeechSynthesisUtterance(p);
       if (voice) u.voice = voice;
-      u.rate = /natural|neural|online/i.test(voice?.name ?? "") ? 1.02 : 0.97;
-      u.pitch = 1;
-      u.onend = u.onerror = () => { if (--left === 0) { clearTimeout(guard); setWave(""); resolve(); } };
-      speechSynthesis.speak(u);
-    }
+      u.rate = /natural|neural|online/i.test(voice?.name ?? "") ? 1.05 : 1;
+      u.onstart = () => { started = true; };
+      u.onend = u.onerror = () => { if (--left <= 0) done(); };
+      return u;
+    });
+    utterances.forEach((u) => speechSynthesis.speak(u));
+    // Backup in case "end" never fires: finish once nothing is speaking or queued for ~1s.
+    // Online voices can take a few seconds to start, so allow up to 8s before the first word.
+    const t0 = Date.now();
+    const poll = setInterval(() => {
+      if (speechSynthesis.speaking || speechSynthesis.pending) { started = true; idle = 0; return; }
+      if (started || Date.now() - t0 > 8000) { if (++idle >= 4) done(); }
+    }, 250);
+    // Chrome's Google voices stop after ~15s unless nudged.
+    const keepAlive = /google/i.test(voice?.name ?? "") ? setInterval(() => { if (speechSynthesis.speaking) { speechSynthesis.pause(); speechSynthesis.resume(); } }, 10000) : null;
   });
+}
+// Wake the voice up early so the first reply starts without a delay.
+function warmUp() {
+  if (!("speechSynthesis" in window) || !voice) return;
+  const u = new SpeechSynthesisUtterance(" ");
+  u.voice = voice; u.volume = 0;
+  speechSynthesis.speak(u);
 }
 function setSpeak(on) {
   speak = on;
@@ -149,7 +184,8 @@ function resetGiveUp() {
 function listen() {
   if (!SR) { addMsg("assistant", "Voice input needs Chrome or Edge. You can still type to me."); stopTalk(); return; }
   if (busy || !talkMode) return;
-  speechSynthesis.cancel();
+  // Still talking? Start listening once the reply has finished.
+  if (speechSynthesis.speaking || speechSynthesis.pending) { setTimeout(listen, 200); return; }
   const id = ++session;
   try { rec?.abort(); } catch {}
   const r = new SR();
@@ -178,7 +214,7 @@ function listen() {
     }
     $("#cp-text").value = (finalText + interim).trim();
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(finish, interim ? 1500 : 800);
+    idleTimer = setTimeout(finish, interim ? 1100 : 550);
     resetGiveUp();
   };
   r.onerror = (e) => {
@@ -206,6 +242,7 @@ function startTalk() {
   $("#cp-talk").classList.add("on");
   $("#cp-talk").innerHTML = "■ Stop";
   if (!speak) setSpeak(true);
+  warmUp();
   resetGiveUp();
   listen();
 }
@@ -220,7 +257,7 @@ function stopTalk() {
 }
 $("#cp-talk").onclick = () => (talkMode ? stopTalk() : startTalk());
 // Tap the wave to interrupt while it's speaking.
-wave.onclick = () => { if (panel.dataset.mode === "speaking") { speechSynthesis.cancel(); setWave(""); if (talkMode) setTimeout(listen, 100); } };
+wave.onclick = () => { if (panel.dataset.mode === "speaking") { speechSynthesis.cancel(); utterances = []; setWave(""); if (talkMode) setTimeout(listen, 150); } };
 
 // ---- talk to the server ----
 async function send(text) {
@@ -234,10 +271,7 @@ async function send(text) {
   typing(true);
   let actions = [];
   try {
-    const [res] = await Promise.all([
-      fetch("/api/copilot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ history }) }),
-      new Promise((r) => setTimeout(r, 450)), // a beat before answering feels less robotic
-    ]);
+    const res = await fetch("/api/copilot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ history }) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     actions = data.actions ?? [];
