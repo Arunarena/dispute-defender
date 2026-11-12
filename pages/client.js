@@ -18,6 +18,16 @@
       return b;
     }));
 
+  // Dashboard and shop/tap tabs find each other: the dashboard says "hello" when its server is
+  // ready (and whenever asked), so a shop opened first, or before the dashboard finished loading,
+  // still sends its orders there.
+  if (channel && RELAY_FIRST) {
+    channel.addEventListener("message", (e) => { if (e.data?.kind === "hello") relayWorks = true; });
+    channel.postMessage({ kind: "ping" });
+  }
+  // The shop's "See it in Risk Radar" asks the dashboard tab to switch views.
+  window.DD_SHOW_DASHBOARD = (view) => channel?.postMessage({ kind: "show", view });
+
   // "/api/x?y" for requests to this demo's API, otherwise null.
   function apiPath(raw) {
     const url = new URL(raw, location.href);
@@ -66,7 +76,10 @@
     });
   }
   function serveRelay(b) {
+    channel.postMessage({ kind: "hello" });
     channel.addEventListener("message", async (e) => {
+      if (e.data?.kind === "ping") return channel.postMessage({ kind: "hello" });
+      if (e.data?.kind === "show") return window.DD?.showView?.(e.data.view);
       if (e.data?.kind !== "req") return;
       const r = await runLocal(b, e.data.req);
       channel.postMessage({ kind: "res", id: e.data.id, status: r.status, headers: r.headers, body: await r.body.text() });
@@ -75,7 +88,10 @@
 
   async function call(req) {
     let r = null;
-    if (relayWorks) r = await viaRelay(req).catch(() => ((relayWorks = false), null));
+    // Anything that changes data (like placing an order) always tries the dashboard tab first,
+    // even if an earlier attempt found none: it may have opened since.
+    if (channel && RELAY_FIRST && (relayWorks || req.method !== "GET")) r = await viaRelay(req).then((x) => ((relayWorks = true), x), () => ((relayWorks = false), null));
+    if (RELAY_FIRST && req.method !== "GET") window.DD_RELAYED = !!r;
     r ??= await runLocal(await backend(), req);
     const noBody = [204, 304].includes(r.status);
     return new Response(noBody ? null : r.body, { status: r.status, headers: r.headers });

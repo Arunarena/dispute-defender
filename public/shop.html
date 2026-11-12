@@ -42,6 +42,12 @@
         const cute = document.documentElement.dataset.theme === "kawaii";
         const base = document.querySelector("link[rel=icon]").getAttribute("href").replace(/shield\.svg$/, "");
         const when = new Date().toLocaleString([], { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+        // On GitHub Pages each tab runs its own copy of the app, so the order only reaches Risk Radar
+        // if a dashboard tab is open to receive it.
+        const lost = window.DD_STATIC_DEMO && demo && !window.DD_RELAYED;
+        const note = !demo ? "A receipt is in your PayPal account."
+          : lost ? "No dashboard tab was open, so Risk Radar didn't get this order. Open the dashboard in another tab, then buy again."
+          : "Risk Radar on the dashboard is checking this order now.";
         const el = document.createElement("div");
         el.className = "pay-ok";
         el.innerHTML = `<div class="po-card" role="dialog" aria-label="Payment complete">
@@ -55,12 +61,31 @@
             <dt>Date</dt><dd>${esc(when)}</dd>
             <dt>Shipping</dt><dd>${tracking ? `Shipped · tracking <code>${esc(tracking)}</code>` : "Ships soon, with tracking"}</dd>
           </dl>
-          <p class="po-note">${demo ? "Demo checkout. Risk Radar on the dashboard is checking this order now." : "A receipt is in your PayPal account."}</p>
-          <div class="po-btns"><button class="cta po-done">${cute ? "Done 🎀" : "Done"}</button><a class="shop-link" href="./?view=radar" target="dd-dash">See it in Risk Radar →</a></div>
+          <p class="po-note">${note}</p>
+          <div class="po-btns"><button class="cta po-done">${cute ? "Done 🎀" : "Done"}</button><a class="shop-link po-radar" href="./?view=radar" target="_blank">${lost ? "Open the dashboard →" : "See it in Risk Radar →"}</a></div>
         </div>`;
         document.body.appendChild(el);
         const close = () => { el.classList.add("out"); setTimeout(() => el.remove(), 250); };
         el.querySelector(".po-done").onclick = close;
+        // Jump to the dashboard tab that's already open (a new tab would start empty on GitHub Pages).
+        const go = el.querySelector(".po-radar");
+        go.onclick = (e) => {
+          if (lost) return; // let it open a fresh dashboard
+          try {
+            if (window.opener && !window.opener.closed && window.opener.DD) {
+              e.preventDefault();
+              window.opener.DD.showView("radar");
+              window.opener.focus();
+              close();
+              return;
+            }
+          } catch {}
+          if (window.DD_STATIC_DEMO) {
+            e.preventDefault();
+            window.DD_SHOW_DASHBOARD?.("radar");
+            go.textContent = "✓ Risk Radar is open in your dashboard tab";
+          }
+        };
         el.onclick = (e) => { if (e.target === el) close(); };
         document.addEventListener("keydown", function onKey(e) { if (e.key === "Escape") { close(); document.removeEventListener("keydown", onKey); } });
         if (cute && window.DDTheme) {
